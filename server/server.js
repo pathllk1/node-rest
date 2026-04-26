@@ -66,26 +66,12 @@ const corsOrigins = (process.env.CORS_ORIGINS || 'http://localhost:3000')
   .filter(Boolean);
 
 // ── Core middleware ────────────────────────────────────────────────────────
-// Manual CORS implementation for maximum reliability on Vercel/GitHub Pages
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  const isAllowed = !origin || corsOrigins.includes(origin.replace(/\/$/, '')) || !isProduction;
-
-  if (isAllowed && origin) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-  }
-
-  res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-CSRF-Token, X-Requested-With, Accept, Origin');
-  res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
-
-  // Handle preflight
-  if (req.method === 'OPTIONS') {
-    return res.status(204).end();
-  }
-  next();
-});
+// ALLOW ALL ORIGINS (Required for cross-domain auth with cookies)
+app.use(cors({
+  origin: (origin, callback) => callback(null, true),
+  credentials: true,
+  optionsSuccessStatus: 200
+}));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

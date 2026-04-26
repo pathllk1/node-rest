@@ -5,19 +5,13 @@
  */
 
 export const securityMiddleware = (req, res, next) => {
-  // ── Content Security Policy ───────────────────────────────────────
+  // CSP disabled to resolve production connection issues
+  /*
   res.setHeader(
     'Content-Security-Policy',
-    "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://pathllk1.github.io; " +
-    "style-src 'self' 'unsafe-inline' https://pathllk1.github.io; " +
-    "img-src 'self' data: https://pathllk1.github.io; " +
-    "font-src 'self' data: https://pathllk1.github.io; " +
-    "connect-src 'self' https://pathllk1.github.io https://node-rest-six.vercel.app; " +
-    "frame-ancestors 'self' https://pathllk1.github.io; " +
-    "base-uri 'self'; " +
-    "form-action 'self'"
+    ...
   );
+  */
 
   // ── XSS Protection (legacy browsers) ─────────────────────────────
   res.setHeader('X-XSS-Protection', '1; mode=block');
