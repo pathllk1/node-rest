@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>User Firm Assignment</title>
+
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+    integrity="sha384-1BmE4kWBq78iYhFldwKuhfstyjynQlstXRjlkstRjEH8P7VIbMaLjVbVUSGAc6E"
+    crossorigin="anonymous"
+  />
+
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/handsontable@14.3.0/dist/handsontable.full.min.css"
+  />
+
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    integrity="sha512-iecdLmaskl7CVJkEZSMUkrQ6usKNU8gohLG33uoyP56r8AgJubwK3NNVc/mnnU2eCLewBMD5ynWEvrUlgF1vKA=="
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+  />
+
+  <link rel="stylesheet" href="admin-common.css" />
+
+  <style>
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background-color: #f8f9fa;
+      overflow: hidden; 
+    }
+
+    /* ── Compact Header & Stats ─────────────────────────────────────────── */
+    .stat-pill {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .stat-blue { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+    .stat-green { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+    .stat-amber { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+
+    /* ── Handsontable Dense Mode Overrides ──────────────────────────────── */
+    .handsontable { font-size: 12px; }
+    .handsontable th { 
+      background-color: #f1f5f9; 
+      font-weight: 600; 
+      color: #334155; 
+      border-bottom: 1px solid #cbd5e1 !important; 
+      padding: 4px 8px !important; 
+      vertical-align: middle;
+    }
+    .handsontable td { 
+      padding: 2px 8px !important; 
+      vertical-align: middle; 
+      color: #1e293b;
+    }
+    .handsontable tbody tr:hover td { background-color: #f8fafc; }
+    
+    /* ── Custom UI Elements in Grid ─────────────────────────────────────── */
+    .firm-select { 
+      width: 100%; 
+      padding: 1px 4px; 
+      border: 1px solid #cbd5e1; 
+      border-radius: 4px; 
+      font-size: 11px; 
+      height: 22px;
+      background-color: white; 
+      cursor: pointer; 
+      outline: none;
+    }
+    .firm-select:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); }
+    
+    .role-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .role-badge.super-admin { background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
+    .role-badge.admin { background: #fef3c7; color: #d97706; border: 1px solid #fde68a; }
+    .role-badge.manager { background: #e0e7ff; color: #4338ca; border: 1px solid #c7d2fe; }
+    .role-badge.user { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+
+    /* ── Toast Notifications (Fallback) ─────────────────────────────────── */
+    .toast-notification {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      z-index: 9999;
+      animation: slideIn 0.3s ease-out;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    .toast-success { background: #10b981; color: white; }
+    .toast-error { background: #ef4444; color: white; }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    
+    /* Loading overlay */
+    .loading-overlay { position: absolute; inset: 0; background: rgba(255,255,255,0.7); display: flex; align-items: center; justify-content: center; z-index: 10; font-size: 13px; font-weight: 600; color: #64748b; }
+    .loading-overlay.hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="d-flex flex-column vh-100">
+    
+    <div class="bg-white px-3 py-2 border-bottom shadow-sm d-flex justify-content-between align-items-center">
+      <div class="d-flex align-items-center gap-2">
+        <div class="bg-primary bg-opacity-10 text-primary rounded p-1 d-flex align-items-center justify-content-center" style="width: 28px; height: 28px;">
+          <i class="fas fa-users-cog" style="font-size: 13px;"></i>
+        </div>
+        <div>
+          <h1 class="h6 mb-0 fw-bold text-dark" style="font-size: 14px;">User–Firm Assignment</h1>
+          <div class="text-muted" style="font-size: 10px;">Quickly map users to appropriate firms</div>
+        </div>
+      </div>
+      
+      <div class="d-flex gap-2">
+        <div class="stat-pill stat-blue">Total <strong id="stat-total" class="fs-6">-</strong></div>
+        <div class="stat-pill stat-green">Assigned <strong id="stat-assigned" class="fs-6">-</strong></div>
+        <div class="stat-pill stat-amber">Unassigned <strong id="stat-unassigned" class="fs-6">-</strong></div>
+      </div>
+    </div>
+
+    <div class="bg-white px-3 py-2 border-bottom d-flex gap-3 align-items-end">
+      <div style="width: 250px;">
+        <label class="form-label text-muted fw-bold text-uppercase mb-1" style="font-size: 9px; letter-spacing: 0.5px;">
+          <i class="fas fa-search me-1"></i>Search Records
+        </label>
+        <input
+          id="search-input"
+          type="text"
+          placeholder="Name, username, email..."
+          class="form-control form-control-sm"
+          style="font-size: 12px;"
+        />
+      </div>
+      <div style="width: 220px;">
+        <label class="form-label text-muted fw-bold text-uppercase mb-1" style="font-size: 9px; letter-spacing: 0.5px;">
+          <i class="fas fa-filter me-1"></i>Filter Assignment
+        </label>
+        <select id="firm-filter" class="form-select form-select-sm" style="font-size: 12px;">
+          <option value="">All Users</option>
+          <option value="unassigned">Unassigned Only</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="flex-grow-1 position-relative p-3 overflow-hidden bg-light">
+      <div class="h-100 w-100 bg-white border rounded shadow-sm overflow-hidden position-relative">
+        <div id="grid-container" class="h-100 w-100">
+          <div class="loading-overlay">
+            <span><i class="fas fa-spinner fa-spin me-2"></i>Loading data…</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/handsontable@14.3.0/dist/handsontable.full.min.js"></script>
+
+  <script>
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STATE & CONFIGURATION
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    const state = {
+      users: [],
+      firms: [],
+      filteredUsers: [],
+      searchTerm: '',
+      firmFilter: '',
+      instance: null,
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // UTILITY: Toast Notifications
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function showToast(message, type = 'info') {
+      const toast = document.createElement('div');
+      toast.className = `toast-notification toast-${type}`;
+      toast.innerHTML = message;
+      document.body.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.animation = 'slideIn 0.3s ease-out reverse';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // UTILITY: Update Stats
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function updateStats() {
+      const total = state.users.length;
+      const assigned = state.users.filter(u => u.firm_id).length;
+      const unassigned = total - assigned;
+
+      document.getElementById('stat-total').textContent = total;
+      document.getElementById('stat-assigned').textContent = assigned;
+      document.getElementById('stat-unassigned').textContent = unassigned;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // FILTERING LOGIC
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function applyFilters() {
+      let filtered = [...state.users];
+
+      if (state.searchTerm) {
+        const term = state.searchTerm.toLowerCase();
+        filtered = filtered.filter(u =>
+          u.fullname?.toLowerCase().includes(term) ||
+          u.username?.toLowerCase().includes(term) ||
+          u.email?.toLowerCase().includes(term)
+        );
+      }
+
+      if (state.firmFilter === 'unassigned') {
+        filtered = filtered.filter(u => !u.firm_id);
+      } else if (state.firmFilter) {
+        filtered = filtered.filter(u => String(u.firm_id) === state.firmFilter);
+      }
+
+      state.filteredUsers = filtered;
+      renderGrid();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // GRID INITIALIZATION & RENDERING
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function renderGrid() {
+      if (!state.instance) return;
+
+      const gridData = state.filteredUsers.map(user => [
+        user.fullname || '—',
+        user.username || '—',
+        user.email || '—',
+        user.role,
+        user.firm_name || '—',
+        user._id,
+      ]);
+
+      state.instance.loadData(gridData);
+    }
+
+    function initializeGrid() {
+      const container = document.getElementById('grid-container');
+
+      // Custom renderer for role badges
+      const roleBadgeRenderer = (instance, td, row, col, prop, value, cellProperties) => {
+        const roleInfo = {
+          super_admin: { class: 'super-admin', label: 'Super Admin' },
+          admin: { class: 'admin', label: 'Admin' },
+          manager: { class: 'manager', label: 'Manager' },
+          user: { class: 'user', label: 'User' },
+        };
+
+        const info = roleInfo[value] || { class: 'user', label: value };
+        td.innerHTML = `<span class="role-badge ${info.class}">${info.label}</span>`;
+        td.style.verticalAlign = 'middle';
+        return td;
+      };
+
+      // Custom renderer for firm assignment dropdown
+      const firmAssignmentRenderer = (instance, td, row, col, prop, value, cellProperties) => {
+        const user = state.filteredUsers[row];
+        if (!user) {
+          td.textContent = '—';
+          return td;
+        }
+
+        const select = document.createElement('select');
+        select.className = 'firm-select';
+        select.dataset.userId = user._id;
+
+        const optionDefault = document.createElement('option');
+        optionDefault.value = '';
+        optionDefault.textContent = '— Select Firm —';
+        select.appendChild(optionDefault);
+
+        const optionRemove = document.createElement('option');
+        optionRemove.value = 'unassign';
+        optionRemove.textContent = '✖ Remove from Firm';
+        select.appendChild(optionRemove);
+
+        for (const firm of state.firms) {
+          const option = document.createElement('option');
+          option.value = firm._id;
+          option.textContent = firm.name;
+          if (String(user.firm_id) === String(firm._id)) {
+            option.selected = true;
+          }
+          select.appendChild(option);
+        }
+
+        select.addEventListener('change', (e) => {
+          const userId = e.target.dataset.userId;
+          const firmId = e.target.value === 'unassign' ? null : e.target.value;
+
+          window.parent.postMessage(
+            {
+              type: 'ASSIGN_USER_TO_FIRM',
+              userId,
+              firmId,
+            },
+            '*'
+          );
+        });
+
+        td.innerHTML = '';
+        td.appendChild(select);
+        td.style.verticalAlign = 'middle';
+        return td;
+      };
+
+      state.instance = new Handsontable(container, {
+        data: [],
+        colHeaders: ['FULL NAME', 'USERNAME', 'EMAIL', 'ROLE', 'CURRENT FIRM', 'ASSIGN TO FIRM'],
+        columns: [
+          { data: 0, readOnly: true, width: 160 },
+          { data: 1, readOnly: true, width: 120 },
+          { data: 2, readOnly: true, width: 180 },
+          { data: 3, readOnly: true, width: 100, renderer: roleBadgeRenderer },
+          { data: 4, readOnly: true, width: 160 },
+          { data: 5, readOnly: true, width: 220, renderer: firmAssignmentRenderer },
+        ],
+        stretchH: 'all',
+        rowHeights: 28, // Forces a dense, compact row height
+        autoRowSize: false,
+        minSpareRows: 0,
+        minSpareCols: 0,
+        manualColumnResize: true,
+        persistentState: false,
+        contextMenu: false,
+        disableVisualSelection: false,
+        outsideClickDeselects: true,
+        licenseKey: 'non-commercial-and-evaluation',
+      });
+
+      renderGrid();
+      hideLoadingOverlay();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LOADING STATE
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function hideLoadingOverlay() {
+      const overlay = document.querySelector('.loading-overlay');
+      if (overlay) {
+        overlay.classList.add('hidden');
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EVENT LISTENERS: Search & Filter
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    document.getElementById('search-input').addEventListener('input', (e) => {
+      state.searchTerm = e.target.value;
+      applyFilters();
+    });
+
+    document.getElementById('firm-filter').addEventListener('change', (e) => {
+      state.firmFilter = e.target.value;
+      applyFilters();
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // MESSAGE HANDLERS: Receive data and commands from parent
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    window.addEventListener('message', (event) => {
+      const msg = event.data;
+
+      if (!msg || !msg.type) return;
+
+      // ── RECEIVE_DATA: Parent sends users, firms, and firm options
+      if (msg.type === 'RECEIVE_DATA') {
+        state.users = msg.users || [];
+        state.firms = msg.firms || [];
+
+        applyFilters();
+        updateStats();
+
+        // Repopulate firm filter dropdown
+        if (state.firms.length > 0) {
+          const firmFilterSelect = document.getElementById('firm-filter');
+          const currentValue = firmFilterSelect.value;
+          
+          // Clear everything except default options
+          firmFilterSelect.innerHTML = '<option value="">All Users</option><option value="unassigned">Unassigned Only</option>';
+
+          for (const firm of state.firms) {
+            const option = document.createElement('option');
+            option.value = firm._id;
+            option.textContent = firm.name;
+            firmFilterSelect.appendChild(option);
+          }
+
+          firmFilterSelect.value = currentValue;
+        }
+
+        if (!state.instance) {
+          initializeGrid();
+        } else {
+          renderGrid();
+        }
+      }
+
+      // ── ASSIGNMENT_SUCCESS: Parent confirms successful assignment
+      if (msg.type === 'ASSIGNMENT_SUCCESS') {
+        showToast(msg.message || 'Assignment updated successfully', 'success');
+        // Parent will send updated data via RECEIVE_DATA
+      }
+
+      // ── ASSIGNMENT_ERROR: Parent reports assignment failure
+      if (msg.type === 'ASSIGNMENT_ERROR') {
+        showToast(msg.error || 'Failed to update assignment', 'error');
+      }
+
+      // ── REFRESH_DATA: Parent sends refreshed data after a change
+      if (msg.type === 'REFRESH_DATA') {
+        state.users = msg.users || [];
+        state.firms = msg.firms || [];
+        applyFilters();
+        updateStats();
+        renderGrid();
+      }
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STARTUP: Notify parent that iframe is ready
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    window.parent.postMessage('IFRAME_READY', '*');
+  </script>
+</body>
+</html>

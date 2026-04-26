@@ -1,0 +1,278 @@
+PROJECT STRUCTURE
+
+.
+|-- .env.example
+|-- .gitignore
+|-- .vercelignore
+|-- package-lock.json
+|-- package.json
+|-- PROJECT_STRUCTURE.txt
+|-- setup.bat
+|-- setup.sh
+|-- vercel.json
+|-- api
+|   └── index.js
+|-- client
+|   |-- app.js
+|   |-- index.html
+|   |-- cdns
+|   |   └── ag-grid-enterprise.min.js
+|   |-- components
+|   |   |-- layout.js
+|   |   |-- navbar.js
+|   |   |-- sidebar.js
+|   |   |-- voucher-modal.js
+|   |   |-- admin
+|   |   |   |-- firmDetails.js
+|   |   |   |-- firmManager.js
+|   |   |   |-- firmModal.js
+|   |   |   |-- toast.js
+|   |   |   |-- userCreator.js
+|   |   |   |-- userFirmAssignment.js
+|   |   |   └── userPasswordManager.js
+|   |   |-- inventory
+|   |   |   |-- prs
+|   |   |   |   |-- batchModal.js
+|   |   |   |   |-- cartManager.js
+|   |   |   |   |-- chargesModal.js
+|   |   |   |   |-- historyModal.js
+|   |   |   |   |-- index.js
+|   |   |   |   |-- invoiceExport.js
+|   |   |   |   |-- layoutRenderer.js
+|   |   |   |   |-- otherChargesManager.js
+|   |   |   |   |-- partyCreate.js
+|   |   |   |   |-- partyManager.js
+|   |   |   |   |-- partyModal.js
+|   |   |   |   |-- stateManager.js
+|   |   |   |   |-- stockCrud.js
+|   |   |   |   |-- stockModal.js
+|   |   |   |   |-- toast.js
+|   |   |   |   └── utils.js
+|   |   |   |-- sls
+|   |   |   |   |-- batchModal.js
+|   |   |   |   |-- cartManager.js
+|   |   |   |   |-- chargesModal.js
+|   |   |   |   |-- historyModal.js
+|   |   |   |   |-- index.js
+|   |   |   |   |-- invoiceExport.js
+|   |   |   |   |-- layoutRenderer.js
+|   |   |   |   |-- otherChargesManager.js
+|   |   |   |   |-- partyCreate.js
+|   |   |   |   |-- partyManager.js
+|   |   |   |   |-- partyModal.js
+|   |   |   |   |-- stateManager.js
+|   |   |   |   |-- stockCrud.js
+|   |   |   |   |-- stockModal.js
+|   |   |   |   |-- toast.js
+|   |   |   |   └── utils.js
+|   |   |   └── stocks
+|   |   |       |-- index.js
+|   |   |       |-- stockApi.js
+|   |   |       └── stockRenderer.js
+|   |   └── wages
+|   |       |-- renderCreateMode.js
+|   |       |-- renderManageMode.js
+|   |       └── renderTabs.js
+|   |-- iframes
+|   |   |-- admin-common.css
+|   |   |-- database-browser.html
+|   |   |-- external-tool.html
+|   |   |-- firms.html
+|   |   |-- password-manager.html
+|   |   |-- user-firm-assignment.html
+|   |   └── users.html
+|   |-- middleware
+|   |   └── authMiddleware.js
+|   |-- pages
+|   |   |-- about.js
+|   |   |-- accounts-dashboard.js
+|   |   |-- authPage.js
+|   |   |-- dashboard.js
+|   |   |-- home.js
+|   |   |-- inventory-categories.js
+|   |   |-- inventory-dashboard.js
+|   |   |-- inventory-reports.js
+|   |   |-- inventory-suppliers.js
+|   |   |-- login.js
+|   |   |-- master-roll.js
+|   |   |-- profile.js
+|   |   |-- purchase.js
+|   |   |-- sales.js
+|   |   |-- stock-movement.js
+|   |   |-- stocks.js
+|   |   |-- superAdmin.js
+|   |   |-- WagesDashboard.js
+|   |   └── ledger
+|   |       |-- account-details.js
+|   |       |-- bank-accounts.js
+|   |       |-- general-ledger.js
+|   |       |-- journal-entries.js
+|   |       |-- new-journal-entry.js
+|   |       |-- new-voucher.js
+|   |       |-- profit-loss.js
+|   |       |-- trial-balance.js
+|   |       └── vouchers.js
+|   |-- public
+|   |   |-- cdns
+|   |   |   |-- chart.umd.min.js
+|   |   |   |-- chartjs.mjs
+|   |   |   |-- cropperjs.mjs
+|   |   |   |-- date-fns.mjs
+|   |   |   |-- docx.mjs
+|   |   |   |-- exceljs.js
+|   |   |   |-- exceljs.min.js
+|   |   |   |-- navigo.min.js
+|   |   |   |-- toastify.css
+|   |   |   |-- toastify.js
+|   |   |   └── xlsx.full.min.js
+|   |   |-- css
+|   |   |   |-- output.css
+|   |   |   └── style.css
+|   |   |-- fonts
+|   |   |   └── ... (DejaVu fonts)
+|   |   |-- img
+|   |   |   └── dashboard-glass-bg.jpg
+|   |   └── tools
+|   |       └── admin-users-grid.js
+|   └── utils
+|       |-- api.js
+|       |-- appointmentLetterGenerator.js
+|       |-- auth.js
+|       └── bankAccounts.js
+|-- docs
+|   |-- ARCHITECTURE.md
+|   |-- README.md
+|   |-- features
+|   |   |-- ACCOUNTING_EXHAUSTIVE.md
+|   |   |-- ACCOUNTING_LEDGER.md
+|   |   |-- ADMIN_MANAGEMENT.md
+|   |   |-- AUTH_SECURITY.md
+|   |   |-- EXPORTS_REPORTS.md
+|   |   |-- HR_PAYROLL_EXHAUSTIVE.md
+|   |   |-- HR_PAYROLL.md
+|   |   |-- INVENTORY_EXHAUSTIVE.md
+|   |   └── INVENTORY.md
+|   |-- logic
+|   |   |-- GST_ENGINE.md
+|   |   └── SEQUENCES.md
+|   └── ... (other markdown docs)
+|-- prisma
+|   └── schema.prisma
+|-- public
+|   └── .gitkeep
+|-- server
+|   |-- server.js
+|   |-- controllers
+|   |   |-- pageController.js
+|   |   └── mongo
+|   |       |-- authController.js
+|   |       |-- database.controller.js
+|   |       |-- firmManagementController.js
+|   |       |-- masterRoll.controller.js
+|   |       |-- pageController.js
+|   |       |-- sessionController.js
+|   |       |-- settingsController.js
+|   |       |-- superAdminController.js
+|   |       |-- systemConfigController.js
+|   |       |-- wages.controller.js
+|   |       |-- inventory
+|   |       |   |-- billUtils.js
+|   |       |   |-- exportUtils.js
+|   |       |   |-- inventoryLedgerHelper.js
+|   |       |   |-- pdfExportController.js
+|   |       |   |-- pdfMakeController.js
+|   |       |   |-- sharedStockHandlers.js
+|   |       |   |-- prs
+|   |       |   |   └── inventory.js
+|   |       |   └── sls
+|   |       |       └── inventory.js
+|   |       └── ledger
+|   |           |-- bankAccountController.js
+|   |           |-- journalEntryController.js
+|   |           |-- ledgerController.js
+|   |           |-- manualLedgerController.js
+|   |           |-- openingBalanceController.js
+|   |           |-- pdfMakeController.js
+|   |           └── voucherController.js
+|   |-- middleware
+|   |   |-- csrfMiddleware.js
+|   |   |-- sanitizer.js
+|   |   └── mongo
+|   |       |-- auth.js
+|   |       |-- authMiddleware.js
+|   |       |-- cronMiddleware.js
+|   |       |-- rateLimitMiddleware.js
+|   |       └── securityMiddleware.js
+|   |-- models
+|   |   |-- AdminAuditLog.model.js
+|   |   |-- BankAccount.model.js
+|   |   |-- Bill.model.js
+|   |   |-- BillSequence.model.js
+|   |   |-- Firm.model.js
+|   |   |-- FirmSettings.model.js
+|   |   |-- index.js
+|   |   |-- Ledger.model.js
+|   |   |-- LoginAudit.model.js
+|   |   |-- MasterRoll.model.js
+|   |   |-- OpeningBalance.model.js
+|   |   |-- Party.model.js
+|   |   |-- RateLimit.model.js
+|   |   |-- RefreshToken.model.js
+|   |   |-- Settings.model.js
+|   |   |-- Stock.model.js
+|   |   |-- StockReg.model.js
+|   |   |-- TokenBlacklist.model.js
+|   |   |-- TokenSessionDevice.model.js
+|   |   |-- User.model.js
+|   |   |-- UserMasterRoll.model.js
+|   |   |-- UserWage.model.js
+|   |   |-- VoucherSequence.model.js
+|   |   └── Wage.model.js
+|   |-- routes
+|   |   └── mongo
+|   |       |-- admin.js
+|   |       |-- api.js
+|   |       |-- auth.js
+|   |       |-- authRoutes.js
+|   |       |-- cron.routes.js
+|   |       |-- database.routes.js
+|   |       |-- ledger.routes.js
+|   |       |-- masterRoll.routes.js
+|   |       |-- pageRoutes.js
+|   |       |-- sessionRoutes.js
+|   |       |-- settings.routes.js
+|   |       |-- wages.routes.js
+|   |       └── inventory
+|   |           |-- prs.js
+|   |           └── sls.js
+|   └── utils
+|       |-- billNumberGenerator.js
+|       |-- csrfUtils.js
+|       |-- dateFormatter.js
+|       |-- db.js
+|       |-- gstCalculator.js
+|       |-- ledgerHelper.js
+|       |-- pdfGenerator.js
+|       |-- prisma.js
+|       |-- seed-prisma.js
+|       |-- seed-super-admin.js
+|       |-- seed.js
+|       |-- tokenUtils.js
+|       |-- users.json
+|       └── mongo
+|           |-- create-test-user.js
+|           |-- dateFormatter.js
+|           |-- fix-ledger-account-consistency.js
+|           |-- gstCalculator.js
+|           |-- ledgerAccountResolver.js
+|           |-- ledgerHelper.js
+|           |-- mongoose.config.js
+|           |-- pdfGenerator.js
+|           |-- reset-password.js
+|           |-- seed-super-admin.js
+|           |-- seed.js
+|           |-- tokenRevocationUtils.js
+|           |-- tokenUtils.js
+|           └── verify-superadmin-role.js
+└── src
+    └── input.css

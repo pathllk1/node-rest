@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>All Users - Advanced Grid System</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  
+  <!-- AG Grid Local CDN -->
+  <script src="../../cdns/ag-grid-enterprise.min.js"></script>
+  
+  <!-- jQuery -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+  <!-- Toastr -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+
+  <!-- Common Styles -->
+  <link rel="stylesheet" href="admin-common.css" />
+
+  <!-- Page-specific overrides -->
+  <style>
+    html, body {
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      min-height: 100vh;
+    }
+    .gradient-primary { background: linear-gradient(135deg, #0f766e 0%, #0891b2 100%); }
+    .gradient-header  { background: linear-gradient(135deg, #0f766e 0%, #0891b2 100%); color: white; }
+  </style>
+</head>
+<body>
+
+  <div style="padding:12px;">
+    <div style="width:100%;">
+      
+      <!-- Main Grid Card -->
+      <div class="glass-card">
+        
+        <!-- Header -->
+        <div class="header-section">
+          <h2><i class="fas fa-users"></i> Users Management</h2>
+          <p>AG Grid &middot; Update Role &amp; Status &middot; Role &amp; Status filters &middot; Quick search &middot; <strong>Grouped by Firm</strong></p>
+        </div>
+
+        <!-- Stats Bar -->
+        <div class="stats-bar">
+          <div class="stat-item">
+            <i class="fas fa-layer-group"></i>
+            <span>Total: <strong id="stat-total">0</strong></span>
+          </div>
+          <div class="stat-item">
+            <i class="fas fa-check-circle" style="color:#10b981;"></i>
+            <span>Approved: <strong id="stat-approved" style="color:#10b981;">0</strong></span>
+          </div>
+          <div class="stat-item">
+            <i class="fas fa-hourglass-half" style="color:#f59e0b;"></i>
+            <span>Pending: <strong id="stat-pending" style="color:#f59e0b;">0</strong></span>
+          </div>
+          <div class="stat-item">
+            <i class="fas fa-times-circle" style="color:#ef4444;"></i>
+            <span>Rejected: <strong id="stat-rejected" style="color:#ef4444;">0</strong></span>
+          </div>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="toolbar">
+          <div class="search-box">
+            <input type="text" id="globalSearch" placeholder="🔍 Search user, email, firm..." />
+          </div>
+          <div class="filter-item">
+            <label>Role:</label>
+            <select id="roleFilter">
+              <option value="">All Roles</option>
+              <option value="super_admin">Super Admin</option>
+              <option value="admin">Admin</option>
+              <option value="manager">Manager</option>
+              <option value="user">User</option>
+            </select>
+          </div>
+          <div class="filter-item">
+            <label>Status:</label>
+            <select id="statusFilter">
+              <option value="">All Status</option>
+              <option value="approved">Approved</option>
+              <option value="pending">Pending</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
+          <button type="button" id="refreshBtn" class="action-btn" style="background: #06b6d4; color: white;">
+            <i id="refreshIcon" class="fas fa-sync-alt"></i> Refresh
+          </button>
+        </div>
+
+        <!-- AG Grid Container -->
+        <div id="agGridContainer" class="ag-grid-container"></div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- VIEW USER MODAL -->
+  <div id="viewModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2><i class="fas fa-user-circle"></i> User Details</h2>
+        <button type="button" onclick="closeModal('viewModal')"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="info-grid" id="viewContent"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" onclick="closeModal('viewModal')"><i class="fas fa-times"></i> Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDIT USER MODAL -->
+  <div id="editModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2><i class="fas fa-user-edit"></i> Edit User</h2>
+        <button type="button" onclick="closeModal('editModal')"><i class="fas fa-times"></i></button>
+      </div>
+      <form id="editForm">
+        <div class="modal-body">
+          <div class="modal-body-grid">
+            <div class="modal-field">
+              <label><i class="fas fa-user"></i> Full Name</label>
+              <input type="text" id="editFullname" required />
+            </div>
+            <div class="modal-field">
+              <label><i class="fas fa-at"></i> Username</label>
+              <input type="text" id="editUsername" required />
+            </div>
+            <div class="modal-field modal-body-full">
+              <label><i class="fas fa-envelope"></i> Email</label>
+              <input type="email" id="editEmail" required />
+            </div>
+            <div class="modal-field">
+              <label><i class="fas fa-shield-alt"></i> Role</label>
+              <select id="editRole">
+                <option value="super_admin">Super Admin</option>
+                <option value="admin">Admin</option>
+                <option value="manager">Manager</option>
+                <option value="user">User</option>
+              </select>
+            </div>
+            <div class="modal-field">
+              <label><i class="fas fa-info-circle"></i> Status</label>
+              <select id="editStatus">
+                <option value="approved">Approved</option>
+                <option value="pending">Pending</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-cancel" onclick="closeModal('editModal')"><i class="fas fa-times"></i> Cancel</button>
+          <button type="submit" class="btn-submit" id="editSubmitBtn"><i class="fas fa-save"></i> Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- DELETE CONFIRMATION MODAL -->
+  <div id="deleteModal" class="modal">
+    <div class="modal-content" style="max-width: 400px;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+        <h2><i class="fas fa-trash"></i> Delete User</h2>
+        <button type="button" onclick="closeModal('deleteModal')"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <p id="deleteMessage" style="font-size: 14px; color: #374151; margin-bottom: 15px;"></p>
+        <div style="padding: 12px; background: #fef2f2; border-left: 3px solid #f5576c; border-radius: 4px;">
+          <strong style="color: #991b1b;"><i class="fas fa-exclamation-triangle"></i> This action cannot be undone!</strong>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" onclick="closeModal('deleteModal')"><i class="fas fa-times"></i> Cancel</button>
+        <button type="button" class="btn-delete" onclick="confirmDelete()"><i class="fas fa-trash"></i> Delete Permanently</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    'use strict';
+
+    let gridApi = null;
+    let allUsers = [];
+    let currentUserIndex = -1;
+
+    if (typeof toastr !== 'undefined') {
+      toastr.options = {
+        closeButton: true,
+        progressBar: true,
+        positionClass: 'toast-bottom-right',
+        timeOut: 2500,
+        extendedTimeOut: 800,
+        showEasing: 'swing',
+        hideEasing: 'linear',
+        showMethod: 'fadeIn',
+        hideMethod: 'fadeOut'
+      };
+    }
+
+    /* ─ Modal Functions ─ */
+    window.openModal = function(modalId) {
+      var modal = document.getElementById(modalId);
+      if (modal) modal.classList.add('show');
+    };
+
+    window.closeModal = function(modalId) {
+      var modal = document.getElementById(modalId);
+      if (modal) modal.classList.remove('show');
+    };
+
+    /* ─ Modal Handlers ─ */
+    window.showViewModal = function(index) {
+      var user = allUsers[index];
+      if (!user) return;
+
+      var created = user.createdAt ? new Date(user.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A';
+      var html = '<div class="info-item"><div class="info-label">Full Name</div><div class="info-value">' + (user.fullname || '—') + '</div></div>' +
+                 '<div class="info-item"><div class="info-label">Username</div><div class="info-value">' + (user.username || '—') + '</div></div>' +
+                 '<div class="info-item"><div class="info-label">Email</div><div class="info-value">' + (user.email || '—') + '</div></div>' +
+                 '<div class="info-item"><div class="info-label">Role</div><div class="info-value"><span class="role-badge role-' + (user.role || 'user') + '">' + (user.role || 'user') + '</span></div></div>' +
+                 '<div class="info-item"><div class="info-label">Status</div><div class="info-value"><span class="status-badge status-' + (user.status || 'pending') + '">' + (user.status || 'pending') + '</span></div></div>' +
+                 '<div class="info-item"><div class="info-label">Firm</div><div class="info-value">' + (user.firm_id?.name || '—') + '</div></div>' +
+                 '<div class="info-item"><div class="info-label">Registered</div><div class="info-value">' + created + '</div></div>';
+      
+      document.getElementById('viewContent').innerHTML = html;
+      openModal('viewModal');
+      if (typeof toastr !== 'undefined') toastr.info('Viewing: ' + user.fullname, 'View Details');
+    };
+
+    window.showEditModal = function(index) {
+      var user = allUsers[index];
+      if (!user) return;
+
+      currentUserIndex = index;
+      document.getElementById('editFullname').value = user.fullname || '';
+      document.getElementById('editUsername').value = user.username || '';
+      document.getElementById('editEmail').value = user.email || '';
+      document.getElementById('editRole').value = user.role || 'user';
+      document.getElementById('editStatus').value = user.status || 'pending';
+      
+      openModal('editModal');
+      if (typeof toastr !== 'undefined') toastr.info('Editing: ' + user.fullname, 'Edit Mode');
+    };
+
+    window.showDeleteModal = function(index) {
+      var user = allUsers[index];
+      if (!user) return;
+
+      currentUserIndex = index;
+      document.getElementById('deleteMessage').textContent = 'Are you sure you want to delete "' + user.fullname + '"? This user will be permanently removed.';
+      openModal('deleteModal');
+    };
+
+    window.confirmDelete = function() {
+      if (currentUserIndex >= 0) {
+        var user = allUsers[currentUserIndex];
+        if (typeof toastr !== 'undefined') toastr.error('Deleted: ' + user.fullname, 'Success', { timeOut: 1500 });
+        closeModal('deleteModal');
+      }
+    };
+
+    /* ─ Form Submission ─ */
+    document.getElementById('editForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      if (currentUserIndex < 0) return;
+
+      var user    = allUsers[currentUserIndex];
+      var newRole = document.getElementById('editRole').value;
+      var newStat = document.getElementById('editStatus').value;
+
+      var roleChanged   = newRole !== (user.role   || '');
+      var statusChanged = newStat !== (user.status || '');
+
+      if (!roleChanged && !statusChanged) {
+        if (typeof toastr !== 'undefined') toastr.info('No changes detected.', 'Info');
+        closeModal('editModal');
+        return;
+      }
+
+      var submitBtn = document.getElementById('editSubmitBtn');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Saving...';
+
+      window._pendingEdits = 0;
+      if (roleChanged)   window._pendingEdits++;
+      if (statusChanged) window._pendingEdits++;
+
+      if (roleChanged) {
+        window.parent.postMessage({ type: 'UPDATE_USER_ROLE', userId: String(user._id), newRole: newRole }, '*');
+      }
+      if (statusChanged) {
+        window.parent.postMessage({ type: 'UPDATE_USER_STATUS', userId: String(user._id), newStatus: newStat }, '*');
+      }
+    });
+
+    /* ─ Update Stats ─ */
+    function updateStats() {
+      document.getElementById('stat-total').textContent = allUsers.length;
+      document.getElementById('stat-approved').textContent = allUsers.filter(u => (u.status || '').toLowerCase() === 'approved').length;
+      document.getElementById('stat-pending').textContent = allUsers.filter(u => (u.status || '').toLowerCase() === 'pending').length;
+      document.getElementById('stat-rejected').textContent = allUsers.filter(u => (u.status || '').toLowerCase() === 'rejected').length;
+    }
+
+    /* ─ Custom Cell Renderers ─ */
+    function roleRenderer(params) {
+      var role = params.value || 'user';
+      return '<span class="role-badge role-' + role + '">' + role + '</span>';
+    }
+
+    function statusRenderer(params) {
+      var status = params.value || 'pending';
+      return '<span class="status-badge status-' + status + '">' + status + '</span>';
+    }
+
+    function actionsRenderer(params) {
+      // Hide actions on group header rows
+      if (params.node && params.node.group) {
+        return '';
+      }
+      var idx = params.data._idx;
+      return '<div style="display:flex;gap:4px;">' +
+        '<button class="action-btn action-view" onclick="showViewModal(' + idx + ')" title="View"><i class="fas fa-eye"></i></button>' +
+        '<button class="action-btn action-edit" onclick="showEditModal(' + idx + ')" title="Edit"><i class="fas fa-edit"></i></button>' +
+        '<button class="action-btn action-delete" onclick="showDeleteModal(' + idx + ')" title="Delete"><i class="fas fa-trash"></i></button>' +
+      '</div>';
+    }
+
+    /* ─ Initialize AG Grid with Firm Grouping ─ */
+    function initializeGrid(data) {
+      allUsers = data;
+      allUsers.forEach(function(u, i) { u._idx = i; });
+      updateStats();
+
+      var gridOptions = {
+        columnDefs: [
+          { field: 'fullname', headerName: 'Full Name', minWidth: 140, filter: true },
+          { field: 'username', headerName: 'Username', minWidth: 120, filter: true },
+          { field: 'email', headerName: 'Email', minWidth: 160, filter: true },
+          { field: 'role', headerName: 'Role', width: 110, cellRenderer: roleRenderer, sortable: true },
+          { field: 'status', headerName: 'Status', width: 110, cellRenderer: statusRenderer, sortable: true },
+          { 
+            field: 'firm_id.name', 
+            headerName: 'Firm', 
+            minWidth: 130, 
+            valueGetter: function(params) { return params.data.firm_id?.name || '—'; },
+            rowGroup: true,          // ← GROUP BY FIRM
+            hide: true,             // hide original column
+            sortable: true
+          },
+          { 
+            field: 'createdAt', 
+            headerName: 'Registered', 
+            width: 120, 
+            valueFormatter: function(params) { 
+              return params.value ? new Date(params.value).toLocaleDateString('en-IN') : '—';
+            } 
+          },
+          { 
+            headerName: 'Actions', 
+            field: 'actions', 
+            width: 110, 
+            cellRenderer: actionsRenderer,
+            sortable: false,
+            filter: false
+          }
+        ],
+        rowData: data,
+        defaultColDef: {
+          flex: 1,
+          sortable: true,
+          filter: true,
+          resizable: true,
+          wrapHeaderText: true,
+          autoHeaderHeight: true,
+          minWidth: 100
+        },
+        autoGroupColumnDef: {
+          headerName: 'Firm',
+          minWidth: 200,
+          cellRendererParams: {
+            suppressCount: false   // shows (N) count
+          }
+        },
+        rowGroupPanelShow: 'always',   // advanced grouping panel (drag columns)
+        groupDefaultExpanded: -1,      // all groups expanded by default
+        pagination: true,
+        paginationPageSize: 15,
+        paginationPageSizeSelector: [10, 15, 25, 50, 100],
+        rowSelection: { mode: 'singleRow' },
+      };
+
+      var container = document.getElementById('agGridContainer');
+      gridApi = agGrid.createGrid(container, gridOptions);
+    }
+
+    /* ─ Search & Filter ─ */
+    document.getElementById('globalSearch').addEventListener('input', function() {
+      gridApi.setGridOption('quickFilterText', this.value);
+    });
+
+    document.getElementById('roleFilter').addEventListener('change', function() {
+      filterData();
+    });
+
+    document.getElementById('statusFilter').addEventListener('change', function() {
+      filterData();
+    });
+
+    function filterData() {
+      var roleVal = document.getElementById('roleFilter').value;
+      var statusVal = document.getElementById('statusFilter').value;
+
+      var filtered = allUsers.filter(function(u) {
+        var roleMatch = !roleVal || u.role === roleVal;
+        var statusMatch = !statusVal || u.status === statusVal;
+        return roleMatch && statusMatch;
+      });
+
+      gridApi.setGridOption('rowData', filtered);
+      updateStats();
+    }
+
+    /* ─ Refresh Button ─ */
+    document.getElementById('refreshBtn').addEventListener('click', function() {
+      var icon = document.getElementById('refreshIcon');
+      icon.style.animation = 'spin 0.6s linear';
+      setTimeout(function() {
+        icon.style.animation = '';
+        document.getElementById('globalSearch').value = '';
+        document.getElementById('roleFilter').value = '';
+        document.getElementById('statusFilter').value = '';
+        gridApi.setGridOption('quickFilterText', '');
+        filterData();
+        window.parent.postMessage('IFRAME_READY', '*');
+        if (typeof toastr !== 'undefined') toastr.info('Refreshing...', 'Refresh', { timeOut: 1000 });
+      }, 600);
+    });
+
+    /* ─ Close modals on ESC ─ */
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        closeModal('viewModal');
+        closeModal('editModal');
+        closeModal('deleteModal');
+      }
+    });
+
+    /* ─ Message Listener ─ */
+    window.addEventListener('message', function(event) {
+      var msg = event.data;
+
+      if (msg && msg.type === 'USERS_DATA') {
+        allUsers = msg.users || [];
+        currentUserIndex = -1;
+        initializeGrid(allUsers);
+        document.getElementById('globalSearch').value = '';
+        document.getElementById('roleFilter').value = '';
+        document.getElementById('statusFilter').value = '';
+        if (typeof toastr !== 'undefined') toastr.success(allUsers.length + ' users loaded', 'Ready', { timeOut: 1800 });
+        return;
+      }
+
+      if (msg && msg.type === 'CRUD_SUCCESS') {
+        window._pendingEdits = (window._pendingEdits || 1) - 1;
+        if (typeof toastr !== 'undefined') toastr.success(msg.message || 'Updated successfully!', 'Success');
+        if (window._pendingEdits <= 0) {
+          closeModal('editModal');
+          var submitBtn = document.getElementById('editSubmitBtn');
+          if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Save Changes'; }
+        }
+        return;
+      }
+
+      if (msg && msg.type === 'CRUD_ERROR') {
+        if (typeof toastr !== 'undefined') toastr.error(msg.error || 'Operation failed', 'Error');
+        var submitBtn = document.getElementById('editSubmitBtn');
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Save Changes'; }
+        return;
+      }
+
+      if (Array.isArray(msg)) {
+        allUsers = msg;
+        currentUserIndex = -1;
+        initializeGrid(allUsers);
+        document.getElementById('globalSearch').value = '';
+        document.getElementById('roleFilter').value = '';
+        document.getElementById('statusFilter').value = '';
+        if (typeof toastr !== 'undefined') toastr.success(allUsers.length + ' users loaded', 'Ready', { timeOut: 1800 });
+      }
+    });
+
+    /* ─ INIT ─ */
+    window.parent.postMessage('IFRAME_READY', '*');
+    if (typeof toastr !== 'undefined') {
+      toastr.info('Ctrl+F → search  |  ESC → close modal  |  Drag columns to group', 'Users Grid Ready', { timeOut: 3000 });
+    }
+
+  </script>
+
+</body>
+</html>

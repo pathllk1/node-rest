@@ -1,0 +1,71 @@
+{
+  "name": "nodejs-spa-auth",
+  "version": "1.0.0",
+  "description": "Node.js SPA with dual token authentication",
+  "main": "server/server.js",
+  "type": "module",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "nodemon server/server.js",
+    "build:css": "npx @tailwindcss/cli -i ./src/input.css -o ./client/public/css/output.css --minify",
+    "watch:css": "npx @tailwindcss/cli -i ./src/input.css -o ./client/public/css/output.css --watch"
+  },
+  "nodemonConfig": {
+    "legacyWatch": true,
+    "watch": [
+      "server/server.js",
+      "server/controllers",
+      "server/middleware",
+      "server/routes",
+      "server/utils"
+    ],
+    "ext": "js,json",
+    "ignore": [
+      "client/",
+      "public/",
+      "src/",
+      "node_modules/"
+    ],
+    "delay": 500
+  },
+  "keywords": [
+    "spa",
+    "auth",
+    "jwt",
+    "business-management"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@libsql/client": "^0.17.0",
+    "@prisma/client": "6.19",
+    "@tailwindcss/cli": "^4.1.18",
+    "@vercel/blob": "^2.3.1",
+    "axios": "^1.14.0",
+    "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.6",
+    "crypto": "^1.0.1",
+    "docx": "^9.6.1",
+    "dotenv": "^16.4.5",
+    "exceljs": "^4.3.0",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "libsql": "^0.5.22",
+    "mongoose": "^8.0.0",
+    "morgan": "^1.10.1",
+    "multer": "^2.1.1",
+    "pdfmake": "^0.3.3",
+    "tailwindcss": "^4.1.18",
+    "uuid": "^9.0.0",
+    "xss": "^1.0.15"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.13",
+    "prisma": "6.19"
+  }
+}

@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Database Browser</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/jqwidgets-scripts/jqwidgets/styles/jqx.base.css">
+  <link rel="stylesheet" href="https://unpkg.com/jqwidgets-scripts/jqwidgets/styles/jqx.material-purple.css">
+  <script src="https://unpkg.com/jqwidgets-scripts/jqwidgets/jqx-all.js"></script>
+  <script src="https://unpkg.com/jqwidgets-scripts/jqwidgets/jqxbutton.js"></script>
+  <script src="https://unpkg.com/jqwidgets-scripts/jqwidgets/jqxwindow.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+
+    .collection-stat { padding: 4px 12px; font-size: 11px; border-radius: 8px; font-weight: 600; }
+    .stat-blue    { background: #fecaca; color: #dc2626; }
+    .stat-purple  { background: #d1fae5; color: #065f46; }
+    .stat-emerald { background: #dbeafe; color: #1d4ed8; }
+    .stat-amber   { background: #fecaca; color: #dc2626; }
+
+    /* ── jqxGrid colour overrides ────────────────────────────────────────────
+       Applied over the material theme to give the grid a vivid indigo-purple
+       identity that matches the app header.
+    ──────────────────────────────────────────────────────────────────────── */
+
+    /* 1. Apply the gradient to the ENTIRE header row wrapper so it spans across */
+    .jqx-grid-header {
+      background-image: linear-gradient(to right, #fb923c 0%, #34d399 50%, #f87171 100%) !important;
+      /* FIX: lock the gradient to the viewport width so the red isn't pushed off-screen */
+      background-attachment: fixed !important; 
+    }
+
+    /* 2. Make individual column cells transparent to show the continuous gradient */
+    .jqx-grid-column-header,
+    .jqx-grid-column-header.jqx-widget-header {
+      background: transparent !important;
+      color: #fff !important;
+      border-color: rgba(255, 255, 255, 0.25) !important; /* Soft white borders */
+    }
+
+    .jqx-grid-column-header .jqx-grid-column-header-cell,
+    .jqx-grid-column-header span {
+      color: #fff !important;
+      font-weight: 700 !important;
+      font-size: 12px !important;
+      letter-spacing: 0.3px;
+    }
+    /* Sort arrows white */
+    .jqx-grid-column-sortascbutton,
+    .jqx-grid-column-sortdescbutton { color: rgba(255,255,255,0.7) !important; }
+
+    /* Filter row — very light indigo tint */
+    .jqx-grid-cell.jqx-grid-column-filterrow,
+    tr.jqx-grid-row.jqx-grid-row-filter td {
+      background: #eef2ff !important;
+    }
+
+    /* Alternating rows */
+    .jqx-grid-cell-alt { background-color: #f5f3ff !important; }    /* indigo-50 */
+    .jqx-grid-cell     { background-color: #fff !important; }
+
+    /* Row hover */
+    .jqx-grid-cell:hover,
+    .jqx-grid-row:hover .jqx-grid-cell { background-color: #e0e7ff !important; }
+
+    /* Selected row */
+    .jqx-grid-cell.jqx-grid-cell-selected,
+    .jqx-grid-cell.jqx-grid-cell-selected:hover {
+      background: #6366f1 !important;
+      color: #fff !important;
+    }
+
+    /* Pager bar */
+    .jqx-grid-pager,
+    .jqx-fill-state-normal.jqx-grid-pager {
+      background: linear-gradient(to right, #f5f3ff, #eef2ff) !important;
+      border-top: 1px solid #c7d2fe !important;
+      position: relative; /* Ensure absolute children position relative to this */
+    }
+    .jqx-grid-pager-number {
+      color: #4f46e5 !important;
+      font-weight: 600;
+    }
+    .jqx-grid-pager-number.jqx-fill-state-pressed {
+      background: #4f46e5 !important;
+      color: #fff !important;
+      border-radius: 4px;
+    }
+
+    /* Grid outer border */
+    .jqx-widget.jqx-grid {
+      border: 1px solid #a5b4fc !important;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    /* Danger confirmation overlay */
+    #danger-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9999;
+    }
+    #danger-overlay.hidden { display: none; }
+    #danger-card {
+      background: #fff; border-radius: 14px; box-shadow: 0 24px 64px rgba(0,0,0,0.35);
+      width: min(480px, 94vw); padding: 28px 28px 24px;
+    }
+  </style>
+</head>
+<body class="bg-gray-50">
+
+<div class="h-screen flex flex-col">
+
+  <div class="bg-gradient-to-r from-red-600 via-green-600 to-pink-600 text-white px-4 py-2.5 shadow-sm">
+    <div class="flex items-center justify-between gap-4">
+      <div class="flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/>
+        </svg>
+        <div>
+          <h1 class="text-base font-bold leading-tight">Database Browser</h1>
+        </div>
+      </div>
+      <div class="text-xs text-right">
+        <div id="db-status" class="font-mono text-green-200">Connected</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white border-b border-gray-200 px-4 py-2 space-y-2">
+
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-3">
+
+      <div>
+        <label class="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Collection</label>
+        <select id="collection-select"
+                class="w-full px-2 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1
+                       focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white">
+          <option value="">— Select Collection —</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-[10px] uppercase tracking-wider font-semibold text-indigo-600 mb-1 flex items-center gap-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 inline-block"></span> Firm
+        </label>
+        <select id="firm-filter"
+                class="w-full px-2 py-1.5 border border-indigo-200 rounded focus:outline-none focus:ring-1
+                       focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white disabled:opacity-50"
+                disabled>
+          <option value="">All Firms</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-[10px] uppercase tracking-wider font-semibold text-purple-600 mb-1 flex items-center gap-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-purple-500 inline-block"></span> User
+        </label>
+        <select id="user-filter"
+                class="w-full px-2 py-1.5 border border-purple-200 rounded focus:outline-none focus:ring-1
+                       focus:ring-purple-500 focus:border-purple-500 text-sm bg-white disabled:opacity-50"
+                disabled>
+          <option value="">All Users</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-[10px] uppercase tracking-wider font-semibold text-gray-500 mb-1">Search</label>
+        <input type="text" id="search-input" placeholder="Search records..."
+               class="w-full px-2 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-1
+                      focus:ring-pink-500 focus:border-pink-500 text-sm">
+      </div>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2 justify-between">
+      <div class="flex gap-2 flex-wrap">
+        <button id="refresh-btn"
+                class="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white
+                       rounded text-xs font-semibold shadow-sm transition">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003
+                 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          Refresh
+        </button>
+        <button id="clear-filters-btn"
+                class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700
+                       rounded text-xs font-semibold shadow-sm transition border border-gray-300">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+          Clear Filters
+        </button>
+        <button id="backup-btn"
+                class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white
+                       rounded text-xs font-semibold shadow-sm transition">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 16v-8m0 8-3-3m3 3 3-3M5 19h14a2 2 0 002-2v-1.5a2 2 0 00-2-2h-1.28a2 2 0 01-1.789-1.106l-.884-1.768A2 2 0 0013.258 9H10.74a2 2 0 00-1.789 1.106l-.884 1.768A2 2 0 016.28 13.5H5a2 2 0 00-2 2V17a2 2 0 002 2z"/>
+          </svg>
+          Backup MongoDB
+        </button>
+
+        <!-- ── Danger zone ─────────────────────────────────────────────────── -->
+        <div class="h-5 w-px bg-gray-300 mx-0.5 hidden sm:block"></div>
+
+        <button id="empty-collection-btn" disabled
+                title="Delete all documents in the selected collection (keeps collection)"
+                class="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white
+                       rounded text-xs font-semibold shadow-sm transition
+                       disabled:opacity-40 disabled:cursor-not-allowed">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+          </svg>
+          Empty
+        </button>
+
+        <button id="drop-collection-btn" disabled
+                title="Permanently drop (destroy) the selected collection"
+                class="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white
+                       rounded text-xs font-semibold shadow-sm transition
+                       disabled:opacity-40 disabled:cursor-not-allowed">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+          </svg>
+          Drop
+        </button>
+
+        </div>
+
+      <div class="flex gap-1.5 text-[10px] items-center flex-wrap">
+        <span id="backup-destination" class="collection-stat stat-purple">Backup: checking…</span>
+        <span class="collection-stat stat-blue"><strong id="total-records">0</strong> total</span>
+        <span class="collection-stat stat-purple"><strong id="shown-records">0</strong> shown</span>
+        <span class="collection-stat stat-emerald"><strong id="page-info">1/1</strong> page</span>
+        <span class="collection-stat stat-amber"><strong id="size-bytes">0 B</strong> size</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex-1 overflow-hidden px-4 py-3 flex flex-col">
+    <div id="grid-wrapper" class="flex-1">
+      <div id="jqxgrid"></div>
+    </div>
+    
+    <div id="rowDetailsModal" style="display: none;">
+      <div>Row Details</div>
+      <div></div>
+    </div>
+  </div>
+
+  <div class="bg-gray-100 border-t border-gray-200 px-4 py-1.5 text-[11px] text-gray-600 flex justify-between">
+    <span id="status-message">Ready</span>
+    <span id="performance-metrics" class="font-mono text-gray-500">Load time: -ms</span>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     DANGER CONFIRMATION OVERLAY
+     Shown for both Empty and Drop operations.
+     All API calls originate from the parent — this only collects confirmation
+     and sends a postMessage.
+═══════════════════════════════════════════════════════════════════════ -->
+<div id="danger-overlay" class="hidden" role="dialog" aria-modal="true">
+  <div id="danger-card">
+
+    <!-- Header -->
+    <div class="flex items-start gap-3 mb-4">
+      <div id="danger-icon-wrap" class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+        </svg>
+      </div>
+      <div>
+        <h2 id="danger-title" class="text-base font-bold text-gray-900"></h2>
+        <p id="danger-subtitle" class="text-xs text-gray-500 mt-0.5"></p>
+      </div>
+    </div>
+
+    <!-- Warning body -->
+    <div id="danger-body" class="rounded-lg p-3 mb-4 text-sm"></div>
+
+    <!-- Typed confirmation -->
+    <label class="block text-xs font-semibold text-gray-700 mb-1">
+      Type <code id="danger-collection-label" class="bg-gray-100 px-1.5 py-0.5 rounded font-mono text-xs text-red-600"></code> to confirm:
+    </label>
+    <input id="danger-confirm-input" type="text" autocomplete="off" spellcheck="false"
+           placeholder="Type collection name…"
+           class="w-full px-3 py-2 border-2 border-gray-300 rounded-lg text-sm font-mono
+                  focus:outline-none focus:border-red-400 transition mb-4">
+
+    <!-- Action row -->
+    <div class="flex gap-2 justify-end">
+      <button id="danger-cancel-btn"
+              class="px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-100
+                     hover:bg-gray-200 rounded-lg transition">
+        Cancel
+      </button>
+      <button id="danger-confirm-btn" disabled
+              class="px-4 py-2 text-sm font-semibold text-white rounded-lg transition
+                     disabled:opacity-40 disabled:cursor-not-allowed">
+        <!-- Label injected by JS -->
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════════
+// DATABASE BROWSER — jqxGrid edition
+//
+// Data flow:
+//   Parent (superAdmin.js) ──postMessage──► this iframe
+//   All records fetched once (no server-side pagination).
+//   Firm/User filter dropdowns are populated from the loaded data itself.
+//   Filtering and pagination are fully client-side via jqxGrid.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class DatabaseBrowser {
+  constructor() {
+    this.collections      = [];
+    this.currentCollection = null;
+    this.allData          = [];   // raw records from server
+    this.processedData    = [];   // flattened primitives — fed to jqxGrid
+    this.currentFields    = [];   // field names in schema order (for export)
+    this.firmField        = null; // which field holds the firm value in loaded data
+    this.userField        = null; // which field holds the user value in loaded data
+    this.source           = null;
+    this.dataAdapter      = null;
+    this.gridInitialized  = false;
+    this.gridModalInitialized = false;
+    this.customButtonsAdded = false;
+    this.startTime        = 0;
+    this.backupConfigured = false;
+    this.backupInFlight   = false;
+
+    this.initializeElements();
+    this.attachListeners();
+    this.loadCollections();
+    this.requestBackupStatus();
+  }
+
+  // ── DOM cache ──────────────────────────────────────────────────────────────
+  initializeElements() {
+    this.els = {
+      collectionSelect:   document.getElementById('collection-select'),
+      firmFilter:         document.getElementById('firm-filter'),
+      userFilter:         document.getElementById('user-filter'),
+      searchInput:        document.getElementById('search-input'),
+      refreshBtn:         document.getElementById('refresh-btn'),
+      clearFiltersBtn:    document.getElementById('clear-filters-btn'),
+      backupBtn:          document.getElementById('backup-btn'),
+      emptyBtn:           document.getElementById('empty-collection-btn'),
+      dropBtn:            document.getElementById('drop-collection-btn'),
+      backupDestination:  document.getElementById('backup-destination'),
+      totalRecords:       document.getElementById('total-records'),
+      shownRecords:       document.getElementById('shown-records'),
+      pageInfo:           document.getElementById('page-info'),
+      sizeBytes:          document.getElementById('size-bytes'),
+      statusMessage:      document.getElementById('status-message'),
+      performanceMetrics: document.getElementById('performance-metrics'),
+      dbStatus:           document.getElementById('db-status'),
+      // Danger modal
+      dangerOverlay:        document.getElementById('danger-overlay'),
+      dangerTitle:          document.getElementById('danger-title'),
+      dangerSubtitle:       document.getElementById('danger-subtitle'),
+      dangerBody:           document.getElementById('danger-body'),
+      dangerCollectionLbl:  document.getElementById('danger-collection-label'),
+      dangerInput:          document.getElementById('danger-confirm-input'),
+      dangerConfirmBtn:     document.getElementById('danger-confirm-btn'),
+      dangerCancelBtn:      document.getElementById('danger-cancel-btn'),
+      dangerIconWrap:       document.getElementById('danger-icon-wrap'),
+    };
+  }
+
+  // ── Listeners ──────────────────────────────────────────────────────────────
+  attachListeners() {
+    this.els.collectionSelect.addEventListener('change', () => this.onCollectionChange());
+    this.els.firmFilter.addEventListener('change',   () => this.applyFilters());
+    this.els.userFilter.addEventListener('change',   () => this.applyFilters());
+    this.els.searchInput.addEventListener('input',   () => this.applyFilters());
+    this.els.refreshBtn.addEventListener('click',    () => this.loadData());
+    this.els.clearFiltersBtn.addEventListener('click', () => this.clearFilters());
+    this.els.backupBtn.addEventListener('click',     () => this.requestBackup());
+
+    // Danger buttons
+    this.els.emptyBtn.addEventListener('click', () => this.openDangerModal('empty'));
+    this.els.dropBtn.addEventListener('click',  () => this.openDangerModal('drop'));
+
+    // Danger modal controls
+    this.els.dangerCancelBtn.addEventListener('click', () => this.closeDangerModal());
+    this.els.dangerInput.addEventListener('input', () => this.onDangerInputChange());
+    this.els.dangerConfirmBtn.addEventListener('click', () => this.executeDangerOp());
+
+    // Close overlay on backdrop click
+    this.els.dangerOverlay.addEventListener('click', (e) => {
+      if (e.target === this.els.dangerOverlay) this.closeDangerModal();
+    });
+
+    // Keyboard: Escape closes, Enter submits when unlocked
+    document.addEventListener('keydown', (e) => {
+      if (this.els.dangerOverlay.classList.contains('hidden')) return;
+      if (e.key === 'Escape') { e.preventDefault(); this.closeDangerModal(); }
+      if (e.key === 'Enter' && !this.els.dangerConfirmBtn.disabled) {
+        e.preventDefault(); this.executeDangerOp();
+      }
+    });
+
+    // Note: Export button listeners are now attached dynamically in injectPagerControls()
+  }
+
+  // ── Grid height ────────────────────────────────────────────────────────────
+  getGridHeight() {
+    const el = document.getElementById('jqxgrid');
+    if (!el) return 400;
+    const top = el.getBoundingClientRect().top;
+    return Math.max(300, Math.floor(window.innerHeight - top - 32 - 8));
+  }
+
+  // ── Flatten raw MongoDB docs to primitives ─────────────────────────────────
+  preprocessData(data) {
+    return data.map(doc => {
+      const row = {};
+      Object.keys(doc).forEach(key => {
+        const v = doc[key];
+        if (v === null || v === undefined)    row[key] = '';
+        else if (v instanceof Date)           row[key] = v.toISOString();
+        else if (typeof v === 'object')       row[key] = JSON.stringify(v);
+        else                                  row[key] = v;
+      });
+      return row;
+    });
+  }
+
+  // ── Detect firm/user fields and populate filter dropdowns ─────────────────
+  populateFilterDropdowns(processedData) {
+    const allKeys = processedData.length ? Object.keys(processedData[0]) : [];
+
+    // Priority-ordered field name candidates
+    const FIRM_CANDIDATES = ['firm_id', 'firm_name', 'firm', 'firmId', 'firmName'];
+    const USER_CANDIDATES = ['username', 'user_name', 'user_id', 'userId', 'created_by',
+                             'updated_by', 'owner', 'createdBy'];
+
+    this.firmField = FIRM_CANDIDATES.find(f => allKeys.includes(f)) || null;
+    this.userField = USER_CANDIDATES.find(f => allKeys.includes(f)) || null;
+
+    // ── Firm dropdown ──────────────────────────────────────────────────────
+    const firmSel = this.els.firmFilter;
+    firmSel.innerHTML = '<option value="">All Firms</option>';
+    if (this.firmField) {
+      const distinct = [...new Set(
+        processedData.map(r => String(r[this.firmField] || '')).filter(v => v)
+      )].sort();
+      distinct.forEach(val => {
+        const opt = document.createElement('option');
+        opt.value = val; opt.textContent = val;
+        firmSel.appendChild(opt);
+      });
+      firmSel.disabled = distinct.length === 0;
+    } else {
+      firmSel.disabled = true;
+    }
+
+    // ── User dropdown ──────────────────────────────────────────────────────
+    const userSel = this.els.userFilter;
+    userSel.innerHTML = '<option value="">All Users</option>';
+    if (this.userField) {
+      const distinct = [...new Set(
+        processedData.map(r => String(r[this.userField] || '')).filter(v => v)
+      )].sort();
+      distinct.forEach(val => {
+        const opt = document.createElement('option');
+        opt.value = val; opt.textContent = val;
+        userSel.appendChild(opt);
+      });
+      userSel.disabled = distinct.length === 0;
+    } else {
+      userSel.disabled = true;
+    }
+  }
+
+  // ── Build jqxGrid schema from first row ───────────────────────────────────
+  generateSchema(data) {
+    if (!data || !data.length) return { datafields: [], columns: [] };
+
+    const firstRow   = data[0];
+    const datafields = [];
+    const columns    = [];
+    const seenKeys   = new Set();
+
+    const addField = (key) => {
+      if (seenKeys.has(key)) return;
+      seenKeys.add(key);
+
+      const rawVal  = firstRow[key];
+      const jqxType = typeof rawVal === 'number' ? 'number'
+                    : typeof rawVal === 'boolean' ? 'bool'
+                    : 'string';
+
+      datafields.push({ name: key, type: jqxType });
+
+      const col = {
+        text:       key,
+        datafield:  key,
+        width:      key === '_id' ? 200 : 150,
+        cellsalign: typeof rawVal === 'number' ? 'right' : 'left'
+      };
+
+      // _id: monospace truncated with tooltip
+      if (key === '_id') {
+        col.cellsrenderer = (_r, _c, val) =>
+          '<div style="margin-top:8px;font-family:monospace;font-size:11px;' +
+          'color:#6d28d9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + val + '">' +
+          String(val).substring(0, 26) + '&#8230;</div>';
+      }
+
+      // Firm field: indigo badge
+      if (key === this.firmField) {
+        col.cellsrenderer = (_r, _c, val) =>
+          '<div style="margin-top:6px;">' +
+          '<span style="background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:12px;' +
+          'font-size:11px;font-weight:600;white-space:nowrap;">' + (val || '—') + '</span></div>';
+      }
+
+      // User field: purple badge
+      if (key === this.userField) {
+        col.cellsrenderer = (_r, _c, val) =>
+          '<div style="margin-top:6px;">' +
+          '<span style="background:#f5f3ff;color:#7c3aed;padding:2px 8px;border-radius:12px;' +
+          'font-size:11px;font-weight:600;white-space:nowrap;">' + (val || '—') + '</span></div>';
+      }
+
+      columns.push(col);
+    };
+
+    if ('_id' in firstRow) addField('_id');
+    Object.keys(firstRow).forEach(key => addField(key));
+
+    return { datafields, columns };
+  }
+
+  // ── Inject Custom Buttons into the jqxGrid Pager DOM ────────────────────
+  injectPagerControls() {
+    // Locate the outermost pager container
+    const $pager = $('#jqxgrid .jqx-grid-pager');
+    if (!$pager.length) return;
+
+    // Prevent duplicate injection
+    if ($('#db-pager-custom-controls').length) return;
+
+    const $c = $('<div id="db-pager-custom-controls" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; gap: 8px; z-index: 99;"></div>');
+    
+    // View Details Button
+    $c.append('<button id="db-view-details-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-semibold shadow-sm transition-colors flex items-center justify-center gap-1" style="height: 24px; padding: 0 10px; border: none; cursor: pointer;">&#128065; View Details</button>');
+
+    // Export Excel Button
+    $c.append('<button id="db-export-excel-btn" class="bg-green-600 hover:bg-green-700 text-white rounded text-xs font-semibold shadow-sm transition-colors flex items-center justify-center gap-1" style="height: 24px; padding: 0 10px; border: none; cursor: pointer;"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg> Excel</button>');
+
+    // Export CSV Button
+    $c.append('<button id="db-export-csv-btn" class="bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-semibold shadow-sm transition-colors flex items-center justify-center gap-1" style="height: 24px; padding: 0 10px; border: none; cursor: pointer;"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg> CSV</button>');
+
+    // Export JSON Button
+    $c.append('<button id="db-export-json-btn" class="bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-semibold shadow-sm transition-colors flex items-center justify-center gap-1" style="height: 24px; padding: 0 10px; border: none; cursor: pointer;"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg> JSON</button>');
+
+    // Record Count
+    $c.append('<span id="db-pager-count" style="font-size:11px; color:#4b5563; font-weight:600; margin-left:4px;"></span>');
+
+    $pager.append($c);
+
+    // Dynamic Listeners for Pager Buttons
+    $('#db-view-details-btn').off('click').on('click', (e) => {
+      e.stopPropagation(); // Prevent grid row selections from stealing focus
+
+      var idx = $('#jqxgrid').jqxGrid('getselectedrowindex');
+      if (idx < 0) { alert('Please select a row first.'); return; }
+
+      var rowData = $('#jqxgrid').jqxGrid('getrowdata', idx);
+
+      var SKIP = { boundindex: 1, uid: 1, visibleindex: 1 };
+      var html = '<div style="overflow-y:auto;height:100%;padding:4px 8px;">' +
+                 '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+      Object.keys(rowData).forEach(function (key) {
+        if (SKIP[key]) return;
+        var v = rowData[key] != null ? String(rowData[key]) : '<em style="color:#94a3b8">null</em>';
+        html += '<tr style="border-bottom:1px solid #e5e7eb;">' +
+          '<td style="padding:7px 10px;font-weight:700;color:#4338ca;white-space:nowrap;width:160px;vertical-align:top;">' + key + '</td>' +
+          '<td style="padding:7px 10px;color:#1e293b;word-break:break-all;">' + v + '</td>' +
+          '</tr>';
+      });
+      html += '</table></div>';
+
+      var $modal = $('#rowDetailsModal');
+      if (!$modal.data('jqxWindow')) {
+        $modal.jqxWindow({
+          width:        640,
+          height:       460,
+          isModal:      true,
+          modalOpacity: 0.35,
+          theme:        'material-purple',
+          autoOpen:     false,
+          resizable:    true,
+          title:        'Row Details'
+        });
+      }
+      $modal.jqxWindow('setContent', html);
+      $modal.jqxWindow('open');
+    });
+
+    $('#db-export-excel-btn').off('click').on('click', (e) => {
+        e.stopPropagation();
+        this.exportAsExcel();
+    });
+
+    $('#db-export-csv-btn').off('click').on('click', (e) => {
+        e.stopPropagation();
+        this.exportAsCSV();
+    });
+
+    $('#db-export-json-btn').off('click').on('click', (e) => {
+        e.stopPropagation();
+        this.exportAsJSON();
+    });
+  }
+
+  // ── (Re)initialize jqxGrid ────────────────────────────────────────────────
+  initializeJqxGrid(dataAdapter, columns) {
+    const existing = document.getElementById('jqxgrid');
+    if (existing) existing.remove();
+    const div = document.createElement('div');
+    div.id = 'jqxgrid';
+    document.getElementById('grid-wrapper').appendChild(div);
+
+    $('#jqxgrid')
+      .on('bindingcomplete', () => {
+        this.gridInitialized = true;
+        setTimeout(() => {
+          this.injectPagerControls();
+          this.updateStats();
+        }, 50);
+      })
+      .on('pagechanged',     () => this.updatePaginationInfo())
+      .on('pagesizechanged', () => this.updatePaginationInfo())
+      .on('filter',          () => setTimeout(() => this.updateStats(), 40));
+
+    const self = this;
+
+    $('#jqxgrid').jqxGrid({
+      source:          dataAdapter,
+      width:           '100%',
+      height:          this.getGridHeight(),
+      theme:           'material-purple',
+      altrows:         true,
+      sortable:        true,
+      filterable:      true,
+      showfilterrow:   true,
+      columnsresize:   true,
+      pageable:        true,
+      pagesize:        10,
+      pagesizeoptions: ['10', '20', '50', '100', 'All'],
+      selectionmode:   'singlerow',
+      enabletooltips:  true,
+      rowsheight:      32,
+      columnsheight:   36,
+      columns: columns.length ? columns : [{ text: '(empty)', datafield: '_id', width: 200 }]
+    });
+
+    $(window).off('resize.dbgrid').on('resize.dbgrid', function () {
+      if (self.gridInitialized) $('#jqxgrid').jqxGrid({ height: self.getGridHeight() });
+    });
+  }
+
+  // ── Data loading ──────────────────────────────────────────────────────────
+  loadCollections() {
+    this.setStatus('Loading collections...');
+    window.parent.postMessage({ type: 'GET_COLLECTIONS' }, '*');
+  }
+
+  requestBackupStatus() {
+    window.parent.postMessage({ type: 'GET_BACKUP_STATUS' }, '*');
+  }
+
+  onCollectionChange() {
+    const collection = this.els.collectionSelect.value;
+    if (collection) {
+      this.currentCollection = collection;
+      this.clearFilters(true);
+      this.setDangerButtonsState(true);
+      this.loadData();
+    } else {
+      this.currentCollection = null;
+      this.setDangerButtonsState(false);
+    }
+  }
+
+  loadData() {
+    if (!this.currentCollection) { this.setStatus('Select a collection first'); return; }
+    this.startTime = performance.now();
+    this.setStatus('Loading ' + this.currentCollection + '...');
+    window.parent.postMessage({ type: 'GET_COLLECTION_DATA', collection: this.currentCollection }, '*');
+  }
+
+  // ── Unified client-side filter (firm + user + search text) ────────────────
+  applyFilters() {
+    if (!this.source || !this.gridInitialized) return;
+
+    const firmVal  = this.els.firmFilter.value;
+    const userVal  = this.els.userFilter.value;
+    const term     = this.els.searchInput.value.trim().toLowerCase();
+
+    let filtered = this.processedData;
+
+    if (firmVal && this.firmField) {
+      filtered = filtered.filter(row => String(row[this.firmField] || '') === firmVal);
+    }
+
+    if (userVal && this.userField) {
+      filtered = filtered.filter(row => String(row[this.userField] || '') === userVal);
+    }
+
+    if (term) {
+      filtered = filtered.filter(row =>
+        Object.values(row).some(v => String(v != null ? v : '').toLowerCase().includes(term))
+      );
+    }
+
+    this.source.localdata = filtered;
+    $('#jqxgrid').jqxGrid('updatebounddata');
+    setTimeout(() => this.updateStats(), 50);
+  }
+
+  // ── Clear all three filters ────────────────────────────────────────────────
+  clearFilters(keepCollection) {
+    this.els.firmFilter.value  = '';
+    this.els.userFilter.value  = '';
+    this.els.searchInput.value = '';
+    if (!keepCollection && this.source) {
+      this.source.localdata = this.processedData;
+      $('#jqxgrid').jqxGrid('updatebounddata');
+      setTimeout(() => this.updateStats(), 50);
+    }
+  }
+
+  // ── Main data display ─────────────────────────────────────────────────────
+  displayData(data) {
+    if (!Array.isArray(data)) { this.setStatus('Invalid data format'); return; }
+
+    this.allData       = data;
+    this.processedData = this.preprocessData(data);
+
+    this.populateFilterDropdowns(this.processedData);
+
+    const { datafields, columns } = this.generateSchema(this.processedData);
+    this.currentFields = datafields.map(f => f.name);
+
+    this.source = { localdata: this.processedData, datatype: 'array', datafields };
+    this.dataAdapter = new $.jqx.dataAdapter(this.source);
+
+    this.initializeJqxGrid(this.dataAdapter, columns);
+
+    const loadTime = (performance.now() - this.startTime).toFixed(2);
+    this.els.totalRecords.textContent       = data.length;
+    this.els.performanceMetrics.textContent = 'Load time: ' + loadTime + 'ms';
+    this.els.sizeBytes.textContent          = this.formatBytes(JSON.stringify(data).length);
+    this.setStatus('Loaded ' + data.length + ' records from ' + this.currentCollection);
+  }
+
+  // ── Stats ─────────────────────────────────────────────────────────────────
+  updateRecordCount() {
+    if (!this.gridInitialized) return;
+    try {
+      const rows = $('#jqxgrid').jqxGrid('getboundrows');
+      const count = rows ? rows.length : 0;
+      this.els.shownRecords.textContent = count;
+      
+      if ($('#db-pager-custom-controls').length === 0) {
+        this.injectPagerControls();
+      }
+
+      const $lbl = $('#db-pager-count');
+      if ($lbl.length) $lbl.text(count + ' records');
+    } catch (_) {}
+  }
+
+  updatePaginationInfo() {
+    if (!this.gridInitialized) return;
+    try {
+      const info = $('#jqxgrid').jqxGrid('getpaginginformation');
+      if (info) this.els.pageInfo.textContent = ((info.pagenum || 0) + 1) + '/' + (info.pagescount || 1);
+      this.updateRecordCount();
+    } catch (_) {}
+  }
+
+  updateStats() { this.updateRecordCount(); this.updatePaginationInfo(); }
+
+  // ── Exports ───────────────────────────────────────────────────────────────
+  getDisplayedRows() {
+    if (!this.gridInitialized || !this.currentFields.length)
+      return this.processedData.length ? this.processedData : this.allData;
+    try {
+      const rows = $('#jqxgrid').jqxGrid('getboundrows');
+      if (rows && rows.length) {
+        return rows.map(r => {
+          const clean = {};
+          this.currentFields.forEach(f => { clean[f] = r[f]; });
+          return clean;
+        });
+      }
+    } catch (_) {}
+    return this.processedData.length ? this.processedData : this.allData;
+  }
+
+  exportAsExcel() {
+    if (typeof XLSX === 'undefined') {
+      this.setStatus('Error: SheetJS (Excel library) failed to load.');
+      return;
+    }
+    const data = this.getDisplayedRows();
+    if (!data.length) { this.setStatus('No data to export'); return; }
+    
+    try {
+      const worksheet = XLSX.utils.json_to_sheet(data);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Data");
+      const filename = (this.currentCollection || 'database') + '-export.xlsx';
+      XLSX.writeFile(workbook, filename);
+      this.setStatus('Exported ' + data.length + ' records as Excel');
+    } catch (err) {
+      this.setStatus('Error exporting to Excel: ' + err.message);
+    }
+  }
+
+  exportAsCSV() {
+    const data = this.getDisplayedRows();
+    if (!data.length) { this.setStatus('No data to export'); return; }
+    const headers = Object.keys(data[0]);
+    const csv = [
+      headers.join(','),
+      ...data.map(row => headers.map(h => {
+        const val = row[h];
+        if (typeof val === 'string' && (val.includes(',') || val.includes('"') || val.includes('\n')))
+          return '"' + val.replace(/"/g, '""')+'"';
+        return val != null ? val : '';
+      }).join(','))
+    ].join('\n');
+    this.downloadFile(csv, (this.currentCollection || 'database') + '-export.csv', 'text/csv');
+    this.setStatus('Exported ' + data.length + ' records as CSV');
+  }
+
+  exportAsJSON() {
+    const data = this.getDisplayedRows();
+    if (!data.length) { this.setStatus('No data to export'); return; }
+    this.downloadFile(JSON.stringify(data, null, 2),
+      (this.currentCollection || 'database') + '-export.json', 'application/json');
+    this.setStatus('Exported ' + data.length + ' records as JSON');
+  }
+
+  downloadFile(content, filename, mimeType) {
+    const url  = URL.createObjectURL(new Blob([content], { type: mimeType }));
+    const link = Object.assign(document.createElement('a'), { href: url, download: filename });
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  formatBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024, sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+  }
+
+  setStatus(msg) { this.els.statusMessage.textContent = msg; }
+
+  // ── Danger-zone button state ──────────────────────────────────────────────
+  setDangerButtonsState(enabled) {
+    this.els.emptyBtn.disabled = !enabled;
+    this.els.dropBtn.disabled  = !enabled;
+  }
+
+  // ── Open danger confirmation modal ────────────────────────────────────────
+  openDangerModal(op) {
+    if (!this.currentCollection) return;
+
+    this._dangerOp = op;           // 'empty' | 'drop'
+    this._dangerInFlight = false;
+
+    const col = this.currentCollection;
+    const count = this.allData.length;
+
+    if (op === 'empty') {
+      this.els.dangerTitle.textContent    = 'Empty Collection';
+      this.els.dangerSubtitle.textContent = `All documents in "${col}" will be permanently deleted`;
+      this.els.dangerIconWrap.className   = 'flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-amber-100 text-amber-600';
+      this.els.dangerBody.className       = 'rounded-lg p-3 mb-4 text-sm bg-amber-50 border border-amber-200 text-amber-800';
+      this.els.dangerBody.innerHTML       =
+        `<strong>⚠ Warning:</strong> This will permanently delete all ` +
+        `<strong>${count.toLocaleString()} document(s)</strong> from ` +
+        `<code class="bg-amber-100 px-1 rounded font-mono">${col}</code>. ` +
+        `The collection itself will remain. This <strong>cannot be undone</strong>.`;
+      this.els.dangerConfirmBtn.textContent  = 'Empty Collection';
+      this.els.dangerConfirmBtn.className    = 'px-4 py-2 text-sm font-semibold text-white rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed bg-amber-500 hover:bg-amber-600';
+    } else {
+      this.els.dangerTitle.textContent    = 'Drop Collection';
+      this.els.dangerSubtitle.textContent = `"${col}" will be permanently destroyed`;
+      this.els.dangerIconWrap.className   = 'flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-red-100 text-red-600';
+      this.els.dangerBody.className       = 'rounded-lg p-3 mb-4 text-sm bg-red-50 border border-red-200 text-red-800';
+      this.els.dangerBody.innerHTML       =
+        `<strong>☠ Danger:</strong> This will <strong>permanently drop</strong> the collection ` +
+        `<code class="bg-red-100 px-1 rounded font-mono">${col}</code> and all ` +
+        `<strong>${count.toLocaleString()} document(s)</strong> inside it from MongoDB. ` +
+        `The collection will <strong>cease to exist</strong>. This <strong>cannot be undone</strong>.`;
+      this.els.dangerConfirmBtn.textContent  = 'Drop Collection';
+      this.els.dangerConfirmBtn.className   = 'px-4 py-2 text-sm font-semibold text-white rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed bg-red-600 hover:bg-red-700';
+    }
+
+    this.els.dangerCollectionLbl.textContent = col;
+    this.els.dangerInput.value               = '';
+    this.els.dangerConfirmBtn.disabled        = true;
+
+    this.els.dangerOverlay.classList.remove('hidden');
+    setTimeout(() => this.els.dangerInput.focus(), 80);
+  }
+
+  closeDangerModal() {
+    this.els.dangerOverlay.classList.add('hidden');
+    this.els.dangerInput.value            = '';
+    this.els.dangerInput.disabled         = false;
+    this.els.dangerConfirmBtn.disabled    = true;
+    this.els.dangerCancelBtn.disabled     = false;
+    this._dangerOp                        = null;
+    this._dangerInFlight                  = false;
+  }
+
+  onDangerInputChange() {
+    const typed = this.els.dangerInput.value.trim();
+    this.els.dangerConfirmBtn.disabled = (typed !== this.currentCollection);
+  }
+
+  executeDangerOp() {
+    if (this._dangerInFlight) return;
+    if (this.els.dangerConfirmBtn.disabled) return;
+    if (!this.currentCollection || !this._dangerOp) return;
+
+    this._dangerInFlight = true;
+    this.els.dangerConfirmBtn.disabled  = true;
+    this.els.dangerCancelBtn.disabled   = true;
+    this.els.dangerInput.disabled       = true;
+    this.els.dangerConfirmBtn.textContent = 'Working…';
+
+    const msgType = this._dangerOp === 'drop' ? 'DROP_COLLECTION' : 'EMPTY_COLLECTION';
+    window.parent.postMessage({ type: msgType, collection: this.currentCollection }, '*');
+  }
+
+  // ── Handle results sent back from parent ───────────────────────────────────
+  handleEmptyResult(payload) {
+    this.closeDangerModal();
+
+    if (!payload || !payload.success) {
+      this.setStatus('Empty failed: ' + ((payload && payload.error) || 'Unknown error'));
+      return;
+    }
+
+    this.setStatus(payload.message || 'Collection emptied');
+    this.loadData();   // reload (will show 0 records)
+  }
+
+  handleDropResult(payload) {
+    this.closeDangerModal();
+
+    if (!payload || !payload.success) {
+      this.setStatus('Drop failed: ' + ((payload && payload.error) || 'Unknown error'));
+      return;
+    }
+
+    this.setStatus(payload.message || 'Collection dropped');
+
+    // After a drop the collection no longer exists — clear current selection
+    // and refresh the collections list
+    this.currentCollection = null;
+    this.els.collectionSelect.value = '';
+    this.allData       = [];
+    this.processedData = [];
+    this.els.totalRecords.textContent = '0';
+    this.setDangerButtonsState(false);
+
+    this.loadCollections();   // repopulate the dropdown without the dropped collection
+  }
+
+  requestBackup() {
+    if (this.backupInFlight) return;
+    if (!this.backupConfigured) {
+      this.setStatus('Backup is not configured in server .env');
+      return;
+    }
+
+    this.backupInFlight = true;
+    this.els.backupBtn.disabled = true;
+    this.els.backupBtn.classList.add('opacity-60', 'cursor-not-allowed');
+    this.setStatus('Creating MongoDB backup and uploading to Infini-Cloud...');
+    window.parent.postMessage({ type: 'BACKUP_DATABASE' }, '*');
+  }
+
+  handleBackupStatus(payload) {
+    this.backupConfigured = Boolean(payload && payload.configured);
+
+    if (!this.backupConfigured) {
+      this.els.backupDestination.textContent = payload && payload.error ? `Backup: ${payload.error}` : 'Backup: not configured';
+      this.els.backupBtn.disabled = true;
+      this.els.backupBtn.classList.add('opacity-60', 'cursor-not-allowed');
+      return;
+    }
+
+    const provider = payload.provider || 'Infini-Cloud WebDAV';
+    const directory = payload.directory || '/';
+    const format = payload.format || 'json.gz';
+
+    this.els.backupDestination.textContent = `${provider} • ${directory} • ${format}`;
+    this.els.backupBtn.disabled = false;
+    this.els.backupBtn.classList.remove('opacity-60', 'cursor-not-allowed');
+  }
+
+  handleBackupResult(payload) {
+    this.backupInFlight = false;
+    this.els.backupBtn.disabled = !this.backupConfigured;
+    this.els.backupBtn.classList.toggle('opacity-60', !this.backupConfigured);
+    this.els.backupBtn.classList.toggle('cursor-not-allowed', !this.backupConfigured);
+
+    if (!payload || !payload.success) {
+      this.setStatus('Backup failed: ' + ((payload && payload.error) || 'Unknown error'));
+      return;
+    }
+
+    const fileName = payload.fileName || 'backup.json.gz';
+    const collections = payload.collections != null ? payload.collections : '?';
+    this.setStatus(`Backup uploaded: ${fileName} (${collections} collections)`);
+  }
+
+  // ── postMessage handlers ──────────────────────────────────────────────────
+  handleCollectionsData(collections) {
+    this.collections = collections;
+    const sel = this.els.collectionSelect;
+    sel.innerHTML = '<option value="">— Select Collection —</option>';
+    collections.forEach(col => {
+      const opt = document.createElement('option');
+      opt.value = col; opt.textContent = col; sel.appendChild(opt);
+    });
+    this.setStatus('Loaded ' + collections.length + ' collections');
+  }
+
+  handleCollectionData(data) { this.displayData(data); }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+const browser = new DatabaseBrowser();
+
+window.addEventListener('message', (event) => {
+  const { type, collections, data, error } = event.data;
+  if (error) { browser.setStatus('Error: ' + error); return; }
+  if (type === 'COLLECTIONS_DATA') browser.handleCollectionsData(collections || []);
+  if (type === 'COLLECTION_DATA')  browser.handleCollectionData(data || []);
+  if (type === 'BACKUP_STATUS')    browser.handleBackupStatus(event.data || {});
+  if (type === 'BACKUP_RESULT')    browser.handleBackupResult(event.data || {});
+  if (type === 'EMPTY_RESULT')     browser.handleEmptyResult(event.data || {});
+  if (type === 'DROP_RESULT')      browser.handleDropResult(event.data || {});
+});
+
+window.parent.postMessage({ type: 'IFRAME_READY' }, '*');
+</script>
+
+</body>
+</html>

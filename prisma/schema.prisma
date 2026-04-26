@@ -1,0 +1,444 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  user
+  manager
+  admin
+  super_admin
+}
+
+enum UserStatus {
+  pending
+  approved
+  rejected
+}
+
+enum FirmStatus {
+  pending
+  approved
+  rejected
+}
+
+model Firm {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  name              String   @unique
+  code              String?  @unique
+  description       String?
+  legal_name        String?
+  
+  // Legacy fields
+  address           String?
+  city              String?
+  state             String?
+  country           String?
+  pincode           String?
+  gst_number        String?
+
+  // Unified Business Locations
+  locations         Json?    // Array of {gst_number, state, state_code, address, city, pincode, is_default}
+
+  phone_number      String?
+  secondary_phone   String?
+  email             String?
+  website           String?
+  business_type     String?
+  industry_type     String?
+  establishment_year Int?
+  employee_count    Int?
+  registration_number String?
+  registration_date String?
+  cin_number        String?
+  pan_number        String?
+  tax_id            String?
+  vat_number        String?
+  
+  bank_account_number String?
+  bank_name         String?
+  bank_branch       String?
+  ifsc_code         String?
+  payment_terms     String?
+  status        FirmStatus @default(approved)
+  license_numbers   String?
+  insurance_details String?
+  currency          String?  @default("INR")
+  timezone          String?  @default("Asia/Kolkata")
+  fiscal_year_start String?
+  invoice_prefix    String?
+  quote_prefix      String?
+  po_prefix         String?
+  logo_url          String?
+  invoice_template  String?
+  enable_e_invoice  Boolean? @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // relations
+  users             User[]
+  masterRolls       MasterRoll[]
+  wages             Wage[]
+  stocks            Stock[]
+  parties           Party[]
+  bills             Bill[]
+  stockRegs         StockReg[]
+  ledgers           Ledger[]
+  billSequences     BillSequence[]
+  firmSettings      FirmSettings[]
+  voucherSequences  VoucherSequence[]
+
+  @@map("firms")
+}
+
+model User {
+  id            String     @id @default(auto()) @map("_id") @db.ObjectId
+  username      String     @unique
+  email         String     @unique
+  fullname      String
+  password      String
+  role          Role       @default(user)
+  firm_id       String?    @db.ObjectId
+  firm          Firm?      @relation(fields: [firm_id], references: [id])
+  status        UserStatus @default(pending)
+  last_mail_sent DateTime?
+  last_login    DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  // relations
+  refreshTokens    RefreshToken[]
+  userMasterRolls  UserMasterRoll[]
+  userWages        UserWage[]
+  createdMasterRolls MasterRoll[] @relation("CreatedBy")
+  updatedMasterRolls MasterRoll[] @relation("UpdatedBy")
+  createdWages     Wage[]       @relation("CreatedBy")
+  updatedWages     Wage[]       @relation("UpdatedBy")
+  cancelledBills   Bill[]       @relation("CancelledBy")
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  user_id    String   @db.ObjectId
+  user       User     @relation(fields: [user_id], references: [id])
+  token_hash String
+  expires_at DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("refresh_tokens")
+}
+
+model MasterRoll {
+  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
+  firm_id             String   @db.ObjectId
+  firm                Firm     @relation(fields: [firm_id], references: [id])
+  employee_name       String
+  father_husband_name String
+  date_of_birth       String
+  aadhar               String
+  pan                 String?
+  phone_no            String
+  address             String
+  bank                String
+  account_no          String
+  ifsc                String
+  branch              String?
+  uan                 String?
+  esic_no             String?
+  s_kalyan_no         String?
+  category            String?  @default("UNSKILLED")
+  p_day_wage          Float?
+  project             String?
+  site                String?
+  date_of_joining     String
+  date_of_exit        String?
+  doe_rem             String?
+  status              String?  @default("Active")
+  created_by          String?  @db.ObjectId
+  createdBy           User?    @relation("CreatedBy", fields: [created_by], references: [id])
+  updated_by          String?  @db.ObjectId
+  updatedBy           User?    @relation("UpdatedBy", fields: [updated_by], references: [id])
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // relations
+  wages               Wage[]
+  userMasterRolls     UserMasterRoll[]
+
+  @@map("masterrolls")
+}
+
+model Wage {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  firm_id           String   @db.ObjectId
+  firm                Firm     @relation(fields: [firm_id], references: [id])
+  master_roll_id    String?  @db.ObjectId
+  masterRoll        MasterRoll? @relation(fields: [master_roll_id], references: [id])
+  p_day_wage        Float?
+  wage_days         Float?   @default(26)
+  project           String?
+  site              String?
+  gross_salary      Float?
+  epf_deduction     Float?
+  esic_deduction    Float?
+  other_deduction   Float?
+  other_benefit     Float?
+  net_salary        Float?
+  salary_month      String
+  paid_date         String?
+  cheque_no         String?
+  paid_from_bank_ac String?
+  created_by        String   @db.ObjectId
+  createdBy         User     @relation("CreatedBy", fields: [created_by], references: [id])
+  updated_by        String   @db.ObjectId
+  updatedBy         User     @relation("UpdatedBy", fields: [updated_by], references: [id])
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // relations
+  userWages         UserWage[]
+
+  @@map("wages")
+}
+
+model UserMasterRoll {
+  id               String @id @default(auto()) @map("_id") @db.ObjectId
+  user_id         String      @db.ObjectId
+  user            User        @relation(fields: [user_id], references: [id])
+  master_roll_id  String      @db.ObjectId
+  masterRoll      MasterRoll  @relation(fields: [master_roll_id], references: [id])
+
+  @@unique([user_id, master_roll_id])
+  @@map("user_master_rolls")
+}
+
+model UserWage {
+  id        String @id @default(auto()) @map("_id") @db.ObjectId
+  user_id    String @db.ObjectId
+  user       User   @relation(fields: [user_id], references: [id])
+  wage_id    String @db.ObjectId
+  wage       Wage   @relation(fields: [wage_id], references: [id])
+
+  @@unique([user_id, wage_id])
+  @@map("user_wages")
+}
+
+model Stock {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  firm_id   String   @db.ObjectId
+  firm      Firm     @relation(fields: [firm_id], references: [id])
+  item      String
+  pno       String?
+  oem       String?
+  hsn       String
+  qty       Float    @default(0)
+  uom       String   @default("pcs")
+  rate      Float    @default(0)
+  grate     Float    @default(0)
+  total     Float    @default(0)
+  mrp       Float?
+  batches   Json?  // JSON array
+  user      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // relations
+  stockRegs StockReg[]
+
+  @@map("stocks")
+}
+
+model Party {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  firm_id    String   @db.ObjectId
+  firm_entity Firm     @relation(fields: [firm_id], references: [id])
+  firm       String
+  gstin      String?  @default("UNREGISTERED")
+  contact    String?
+  state      String?
+  state_code String?
+  addr       String?
+  pin        String?
+  pan        String?
+  usern      String?
+  supply     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // relations
+  bills      Bill[]
+  ledgers    Ledger[]
+
+  @@map("parties")
+}
+
+model Bill {
+  id                   String   @id @default(auto()) @map("_id") @db.ObjectId
+  firm_id              String   @db.ObjectId
+  firm_entity          Firm     @relation(fields: [firm_id], references: [id])
+  voucher_id           String?
+  bno                  String
+  bdate                String
+  supply               String?
+  addr                 String?
+  gstin                String?
+  state                String?
+  pin                  String?
+  state_code           String?
+  gtot                 Float    @default(0)
+  ntot                 Float    @default(0)
+  rof                  Float?   @default(0)
+  btype                String?  @default("SALES")
+  usern                String?
+  firm                 String?
+  party_id             String?  @db.ObjectId
+  party                Party?   @relation(fields: [party_id], references: [id])
+  oth_chg_json         String?  // JSON string
+  other_charges        Json?    // JSON array
+  order_no             String?
+  vehicle_no           String?
+  dispatch_through     String?
+  narration            String?
+  reverse_charge       Boolean? @default(false)
+  cgst                 Float?   @default(0)
+  sgst                 Float?   @default(0)
+  igst                 Float?   @default(0)
+  status               String?  @default("ACTIVE")
+  cancellation_reason  String?
+  cancelled_at         DateTime?
+  cancelled_by         String?  @db.ObjectId
+  cancelledBy          User?    @relation("CancelledBy", fields: [cancelled_by], references: [id])
+  consignee_name       String?
+  consignee_gstin      String?
+  consignee_address    String?
+  consignee_state      String?
+  consignee_pin        String?
+  consignee_state_code String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  // relations
+  stockRegs            StockReg[]
+  ledgers              Ledger[]
+
+  @@map("bills")
+}
+
+model StockReg {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  firm_id        String   @db.ObjectId
+  firm_entity    Firm     @relation(fields: [firm_id], references: [id])
+  type           String
+  bno            String?
+  bdate          String?
+  supply         String?
+  item           String
+  item_narration String?
+  batch          String?
+  hsn            String?
+  qty            Float
+  uom            String?
+  rate           Float?   @default(0)
+  grate          Float?   @default(0)
+  disc           Float?   @default(0)
+  total          Float?   @default(0)
+  stock_id       String?  @db.ObjectId
+  stock          Stock?   @relation(fields: [stock_id], references: [id])
+  bill_id        String?  @db.ObjectId
+  bill           Bill?    @relation(fields: [bill_id], references: [id])
+  user           String?
+  firm             String?
+  qtyh           Float?   @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("stockregs")
+}
+
+model Ledger {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  firm_id          String   @db.ObjectId
+  firm             Firm     @relation(fields: [firm_id], references: [id])
+  voucher_id       Int?
+  voucher_type     String?
+  voucher_no       String?
+  account_head     String
+  account_type     String?
+  debit_amount     Float?   @default(0)
+  credit_amount    Float?   @default(0)
+  narration        String?
+  bill_id          String?  @db.ObjectId
+  bill             Bill?    @relation(fields: [bill_id], references: [id])
+  party_id         String?  @db.ObjectId
+  party            Party?   @relation(fields: [party_id], references: [id])
+  tax_type         String?
+  tax_rate         Float?
+  transaction_date String?
+  created_by       String?  // username string
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("ledgers")
+}
+
+model BillSequence {
+  id             String @id @default(auto()) @map("_id") @db.ObjectId
+  firm_id        String @db.ObjectId
+  firm           Firm   @relation(fields: [firm_id], references: [id])
+  financial_year String
+  last_sequence  Int?   @default(0)
+  voucher_type   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([firm_id, financial_year, voucher_type])
+  @@map("billsequences")
+}
+
+model Settings {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  setting_key  String   @unique
+  setting_value String?
+  description  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("settings")
+}
+
+model FirmSettings {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  firm_id      String   @db.ObjectId
+  firm         Firm     @relation(fields: [firm_id], references: [id])
+  setting_key  String
+  setting_value String?
+  description  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([firm_id, setting_key])
+  @@map("firmsettings")
+}
+
+model VoucherSequence {
+  id             String @id @default(auto()) @map("_id") @db.ObjectId
+  firm_id        String @db.ObjectId
+  firm           Firm @relation(fields: [firm_id], references: [id])
+  financial_year String
+  last_sequence  Int? @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([firm_id, financial_year])
+  @@map("voucher_sequences")
+}

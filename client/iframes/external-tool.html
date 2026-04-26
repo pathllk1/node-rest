@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>External Admin Tool</title>
+
+<!-- Tailwind CDN -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        brand: '#7c3aed'
+      }
+    }
+  }
+}
+</script>
+
+</head>
+
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-8">
+
+<div class="max-w-3xl w-full bg-white rounded-xl shadow-lg p-8 space-y-6">
+
+  <div>
+    <h1 class="text-2xl font-bold text-gray-800">
+      External Admin Tool
+    </h1>
+    <p class="text-gray-500 mt-1">
+      This page is loaded inside the Super Admin iframe.
+    </p>
+  </div>
+
+  <div class="border rounded-lg p-6 bg-gray-50 space-y-4">
+
+    <p class="text-gray-700">
+      Click the button below to test iframe functionality.
+    </p>
+
+    <button
+      onclick="testMessage()"
+      class="px-5 py-2 bg-brand text-white rounded-lg hover:bg-purple-700 transition"
+    >
+      Test Button
+    </button>
+
+    <p id="msg" class="text-green-600 font-medium"></p>
+
+  </div>
+
+  <div class="grid grid-cols-3 gap-4">
+
+    <div class="bg-blue-50 p-4 rounded-lg text-center">
+      <p class="text-sm text-gray-500">Users</p>
+      <p class="text-xl font-bold text-blue-600">124</p>
+    </div>
+
+    <div class="bg-green-50 p-4 rounded-lg text-center">
+      <p class="text-sm text-gray-500">Orders</p>
+      <p class="text-xl font-bold text-green-600">56</p>
+    </div>
+
+    <div class="bg-purple-50 p-4 rounded-lg text-center">
+      <p class="text-sm text-gray-500">Revenue</p>
+      <p class="text-xl font-bold text-purple-600">$3,240</p>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+
+function testMessage(){
+  document.getElementById("msg").innerText =
+  "✅ Tailwind iframe tool working correctly.";
+}
+
+</script>
+
+</body>
+</html>

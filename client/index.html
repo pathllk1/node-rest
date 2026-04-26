@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SecureApp - Dual Token Authentication</title>
+
+  <link rel="stylesheet" href="/public/css/output.css">
+  <link rel="stylesheet" href="/public/css/style.css">
+  <link rel="stylesheet" href="/public/cdns/toastify.css">
+  <link rel="icon" type="image/png" href="/public/img/favicon.png">
+</head>
+<body class="overflow-x-hidden">
+  <!-- Navbar container -->
+  <div id="navbar"></div>
+
+  <!-- Sidebar container -->
+  <div id="sidebar" class="overflow-hidden"></div>
+  
+  <!-- Main app container -->
+  <div id="app">
+    <div class="container">
+      <div class="loading">
+        <div class="spinner"></div>
+        <p>Loading...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer container -->
+  <div id="footer"></div>
+  
+  <!-- Load Navigo router -->
+  <script src="/public/cdns/navigo.min.js"></script>
+  
+  <!-- Load Toastify -->
+  <script src="/public/cdns/toastify.js"></script>
+  
+  <!-- Load app as ES module -->
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
