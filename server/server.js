@@ -66,9 +66,20 @@ const corsOrigins = (process.env.CORS_ORIGINS || 'http://localhost:3000')
   .filter(Boolean);
 
 // ── Core middleware ────────────────────────────────────────────────────────
-// ALLOW ALL ORIGINS (Required for cross-domain auth with cookies)
+// Restricted CORS: only allow origins specified in .env
 app.use(cors({
-  origin: (origin, callback) => callback(null, true),
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    
+    // Check if origin is in the allowed list
+    if (corsOrigins.indexOf(origin) !== -1 || !isProduction) {
+      callback(null, true);
+    } else {
+      console.warn(`[CORS] ❌ Origin ${origin} blocked`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   optionsSuccessStatus: 200
 }));
