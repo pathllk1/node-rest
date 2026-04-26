@@ -25,6 +25,10 @@ export const csrfGenerateToken = (req, res, next) => {
         sameSite: sameSitePolicy,
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
       });
+      
+      console.log(`[CSRF] 🔐 Generated new token | sameSite: ${sameSitePolicy} | secure: ${isSecure}`);
+    } else {
+      console.log(`[CSRF] ✅ Token already exists in cookies`);
     }
     
     next();
@@ -61,6 +65,7 @@ export const csrfValidateToken = (req, res, next) => {
     
     if (!clientToken) {
       console.warn('[CSRF_VALIDATE] ❌ CSRF token missing for', req.path);
+      console.warn('[CSRF_VALIDATE] Headers:', req.headers);
       return res.status(403).json({
         success: false,
         message: 'CSRF token missing'
@@ -72,11 +77,14 @@ export const csrfValidateToken = (req, res, next) => {
     
     if (!storedToken) {
       console.warn('[CSRF_VALIDATE] ❌ CSRF token not found in session');
+      console.warn('[CSRF_VALIDATE] Cookies:', req.cookies);
       return res.status(403).json({
         success: false,
         message: 'CSRF token not found in session'
       });
     }
+    
+    console.log('[CSRF_VALIDATE] ✅ Tokens present | Client:', clientToken.substring(0, 8) + '... | Stored:', storedToken.substring(0, 8) + '...');
     
     // Verify token with timing-safe comparison to prevent timing attacks
     try {
