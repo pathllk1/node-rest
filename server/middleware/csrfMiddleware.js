@@ -31,6 +31,10 @@ export const csrfGenerateToken = (req, res, next) => {
       console.log(`[CSRF] ✅ Token already exists in cookies`);
     }
     
+    // Send CSRF token in response header so client can read it
+    // This is necessary for cross-origin requests where document.cookie might not have access
+    res.setHeader('X-CSRF-Token', csrfToken);
+    
     next();
   } catch (error) {
     console.error('[CSRF_GENERATE_ERROR]', error);
