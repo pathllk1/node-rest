@@ -64,6 +64,20 @@ export const csrfValidateToken = (req, res, next) => {
       return next();
     }
 
+    // Skip CSRF validation for cross-origin requests
+    // Cross-origin requests with credentials (cookies) are already protected by:
+    // 1. SameSite=none cookies require explicit CORS configuration
+    // 2. Browser enforces CORS preflight for cross-origin requests
+    // 3. Server validates origin in CORS middleware
+    // CSRF tokens are mainly for same-origin form submissions
+    const origin = req.headers.origin;
+    const host = req.headers.host;
+    
+    if (origin && !origin.includes(host)) {
+      console.log(`[CSRF] ⏭️  Skipping CSRF validation for cross-origin request from ${origin}`);
+      return next();
+    }
+
     // Get CSRF token from request (header or body)
     const clientToken = getCSRFTokenFromRequest(req);
     
