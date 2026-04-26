@@ -60,13 +60,25 @@ app.set('trust proxy', 1);
 
 // ── Parse CORS origins from environment ────────────────────────────────────
 // CORS_ORIGINS should be comma-separated list: http://localhost:5173,http://localhost:3000
-const corsOrigins = (process.env.CORS_ORIGINS || 'http://localhost:3000').split(',').map(o => o.trim());
+const corsOrigins = (process.env.CORS_ORIGINS || 'http://localhost:3000')
+  .split(',')
+  .map(o => o.trim().replace(/\/$/, '')) // Remove trailing slashes
+  .filter(Boolean);
 
 // ── Core middleware ────────────────────────────────────────────────────────
-// For cross-site cookies (sameSite: 'none'), credentials must be true
 app.use(cors({
-  origin: corsOrigins,
-  credentials: true  // Required for cookies to be sent cross-origin
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    
+    if (corsOrigins.indexOf(origin) !== -1 || !isProduction) {
+      callback(null, true);
+    } else {
+      console.warn(`[CORS] ❌ Origin ${origin} blocked`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
