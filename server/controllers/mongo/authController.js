@@ -154,7 +154,7 @@ export const login = async (req, res) => {
     const tokenFamilyId = uuidv4();
 
     // Generate token pair with device and family info
-    const { accessToken, refreshToken } = generateTokenPair(
+    const { accessToken, refreshToken, csrfToken } = generateTokenPair(
       { ...user.toObject(), firm_id: firm?._id ?? null },
       { device_id: clientDeviceId || 'unknown', family_id: tokenFamilyId }
     );
@@ -186,9 +186,7 @@ export const login = async (req, res) => {
       }
     }
 
-    // Set cookies
-    // For cross-site cookies (different domains), use sameSite: 'none' + secure: true
-    // For same-site cookies (same domain), use sameSite: 'lax'
+    // Set cookies (Backward compatibility)
     const sameSitePolicy = process.env.COOKIE_SAMESITE || 'lax';
     const isSecure = process.env.NODE_ENV === 'production' || sameSitePolicy === 'none';
     
@@ -215,6 +213,9 @@ export const login = async (req, res) => {
     res.json({
       success: true,
       message: 'Login successful',
+      accessToken,  // NEW: return in body for Bearer token usage
+      refreshToken, // NEW: return in body for Bearer token usage
+      csrfToken,    // NEW: return in body for non-cookie CSRF handling
       user: {
         id:         user._id,
         username:   user.username,
@@ -246,9 +247,17 @@ export const login = async (req, res) => {
 
 export const logout = async (req, res) => {
   try {
-    const rawRefresh = req.cookies.refreshToken;
-    const rawAccess  = req.cookies.accessToken;
+    let rawRefresh = req.cookies.refreshToken;
+    let rawAccess  = req.cookies.accessToken;
     const ip         = getClientIP(req);
+
+    // Support headers if cookies are missing
+    if (!rawAccess && req.headers.authorization?.startsWith('Bearer ')) {
+      rawAccess = req.headers.authorization.substring(7);
+    }
+    if (!rawRefresh && req.headers['x-refresh-token']) {
+      rawRefresh = req.headers['x-refresh-token'];
+    }
 
     if (req.user?.id) {
       // ── Blacklist the refresh token ──────────────────────────────
@@ -328,6 +337,8 @@ export const getCurrentUser = async (req, res) => {
         last_login: user.last_login,
       },
       tokenRefreshed: req.tokenRefreshed || false,
+      accessToken:    req.tokenRefreshed ? req.newAccessToken : undefined,
+      csrfToken:      req.tokenRefreshed ? req.newCSRFToken : undefined,
     });
   } catch (error) {
     console.error('❌ getCurrentUser error:', error);
@@ -340,7 +351,14 @@ export const getCurrentUser = async (req, res) => {
 ───────────────────────────────────────────────────────────────────────── */
 
 export const refreshToken = (req, res) => {
-  res.json({ success: true, message: 'Token refreshed', user: req.user });
+  res.json({ 
+    success: true, 
+    message: 'Token refreshed', 
+    user: req.user,
+    tokenRefreshed: req.tokenRefreshed || false,
+    accessToken:    req.tokenRefreshed ? req.newAccessToken : undefined,
+    csrfToken:      req.tokenRefreshed ? req.newCSRFToken : undefined,
+  });
 };
 
 /* ─────────────────────────────────────────────────────────────────────────

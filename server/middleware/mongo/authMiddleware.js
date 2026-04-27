@@ -20,8 +20,6 @@ function hashToken(raw) {
 function setAccessCookies(res, newAccessToken) {
   const newExpiryTimestamp = Date.now() + ACCESS_LIFE_MS;
   
-  // For cross-site cookies (different domains), use sameSite: 'none' + secure: true
-  // For same-site cookies (same domain), use sameSite: 'lax'
   const sameSitePolicy = process.env.COOKIE_SAMESITE || 'lax';
   const isSecure = process.env.NODE_ENV === 'production' || sameSitePolicy === 'none';
 
@@ -40,12 +38,38 @@ function setAccessCookies(res, newAccessToken) {
   });
 }
 
+/** 
+ * Helper to validate CSRF token from JWT against request header.
+ * Tightest protection: CSRF token is cryptographically bound to the JWT.
+ */
+function validateCSRF(req, decoded) {
+  const stateChangingMethods = ['POST', 'PUT', 'DELETE', 'PATCH'];
+  if (!stateChangingMethods.includes(req.method)) {
+    return true; // Skip for GET, HEAD, OPTIONS
+  }
+
+  const clientCSRFToken = req.headers['x-csrf-token'];
+  const jwtCSRFToken = decoded.csrf_token;
+
+  if (!jwtCSRFToken) {
+    console.warn('[CSRF] ❌ No CSRF token in JWT payload');
+    return false;
+  }
+
+  if (!clientCSRFToken || clientCSRFToken !== jwtCSRFToken) {
+    console.warn(`[CSRF] ❌ Token mismatch. Header: ${clientCSRFToken ? 'present' : 'missing'}, JWT: ${jwtCSRFToken ? 'present' : 'missing'}`);
+    return false;
+  }
+
+  return true;
+}
+
 /** Clear both auth cookies and return a 401 */
 function clearAndReject(res, message = 'Session expired, please login again') {
   res.clearCookie('accessToken');
   res.clearCookie('refreshToken');
   res.clearCookie('tokenExpiry');
-  return res.status(401).json({ success: false, message });
+  return res.status(401).json({ success: false, message, code: 'UNAUTHORIZED' });
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -54,18 +78,29 @@ function clearAndReject(res, message = 'Session expired, please login again') {
 
 export const authMiddleware = async (req, res, next) => {
   try {
-    const accessToken  = req.cookies.accessToken;
-    const refreshToken = req.cookies.refreshToken;
+    let accessToken  = req.cookies.accessToken;
+    let refreshToken = req.cookies.refreshToken;
+
+    // Support Bearer Token in Authorization header (preferred)
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      accessToken = authHeader.substring(7);
+    }
+
+    // Support Refresh Token in header
+    if (req.headers['x-refresh-token']) {
+      refreshToken = req.headers['x-refresh-token'];
+    }
 
     // ── No tokens at all ──────────────────────────────────────────────
     if (!accessToken && !refreshToken) {
-      return res.status(401).json({ success: false, message: 'Authentication required' });
+      return res.status(401).json({ success: false, message: 'Authentication required', code: 'UNAUTHORIZED' });
     }
 
     // ── Try access token first ────────────────────────────────────────
     if (accessToken) {
       try {
-        // Check if access token is blacklisted (covers logout + logout-all)
+        // Check if access token is blacklisted
         if (await isTokenBlacklisted(accessToken)) {
           console.warn('🚫 Access token is blacklisted');
           return clearAndReject(res, 'Your session has been invalidated. Please login again.');
@@ -73,24 +108,28 @@ export const authMiddleware = async (req, res, next) => {
 
         const decoded = verifyAccessToken(accessToken);
 
-        // Token type validation — prevents token substitution attack
-        // (verifyAccessToken already checks this, but belt-and-braces)
+        // Token type validation
         if (decoded.type !== 'access') {
           console.warn('⚠️ Invalid token type in access token');
           return clearAndReject(res, 'Invalid token');
         }
 
+        // ── CSRF VALIDATION (Tightest: Header vs JWT Claim) ──
+        if (!validateCSRF(req, decoded)) {
+          return res.status(403).json({ success: false, message: 'CSRF token validation failed', code: 'CSRF_ERROR' });
+        }
+
         req.user = decoded;
         return next();
       } catch (error) {
-        // Access token missing, invalid, or expired — fall through to refresh flow
-        console.log('ℹ️ Access token invalid/expired, attempting refresh...');
+        // Access token invalid or expired — fall through to refresh flow if possible
+        console.log(`ℹ️ Access token invalid/expired: ${error.message}`);
       }
     }
 
     // ── No refresh token to fall back on ─────────────────────────────
     if (!refreshToken) {
-      return res.status(401).json({ success: false, message: 'Session expired' });
+      return res.status(401).json({ success: false, message: 'Session expired', code: 'UNAUTHORIZED' });
     }
 
     // ── Check if refresh token is blacklisted ────────────────────────
@@ -104,7 +143,6 @@ export const authMiddleware = async (req, res, next) => {
     try {
       refreshDecoded = verifyRefreshToken(refreshToken);
 
-      // Token type validation
       if (refreshDecoded.type !== 'refresh') {
         console.warn('⚠️ Invalid token type in refresh token');
         return clearAndReject(res, 'Invalid token');
@@ -112,6 +150,12 @@ export const authMiddleware = async (req, res, next) => {
     } catch (error) {
       console.warn('⚠️ Refresh token verification failed:', error.message);
       return clearAndReject(res);
+    }
+
+    // ── CSRF VALIDATION for Refresh Token (if used for state-changing request) ──
+    // Usually refresh is only used to get a new access token, but if it's used directly:
+    if (!validateCSRF(req, refreshDecoded)) {
+       return res.status(403).json({ success: false, message: 'CSRF token validation failed', code: 'CSRF_ERROR' });
     }
 
     // ── DB cross-check: token hash must exist and not be expired/revoked ──
@@ -195,12 +239,15 @@ export const authMiddleware = async (req, res, next) => {
       firm_id:   refreshDecoded.firm_id,
       device_id: refreshDecoded.device_id,
       family_id: refreshDecoded.family_id,
+      csrf_token: refreshDecoded.csrf_token, // Pass along the CSRF token
     });
 
     setAccessCookies(res, newAccessToken);
 
     req.user           = refreshDecoded;
     req.tokenRefreshed = true;
+    req.newAccessToken = newAccessToken;
+    req.newCSRFToken   = refreshDecoded.csrf_token;
 
     return next();
 

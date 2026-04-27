@@ -5,6 +5,7 @@
  */
 
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import 'dotenv/config';
 
 const ACCESS_TOKEN_SECRET  = process.env.ACCESS_TOKEN_SECRET;
@@ -24,6 +25,14 @@ if (REFRESH_TOKEN_SECRET.length < 32) {
 
 const ACCESS_TOKEN_EXPIRY  = '15m';  // 15 minutes
 const REFRESH_TOKEN_EXPIRY = '30d';  // 30 days
+
+/**
+ * Generate a cryptographically strong CSRF token
+ * @returns {string}
+ */
+export function generateCSRFToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
 
 /**
  * Generate a short-lived access token (HS256)
@@ -102,16 +111,19 @@ export function verifyRefreshToken(token) {
 /**
  * Generate both tokens at once for a user document
  * @param {{ _id, username, email, role, firm_id }} user - Mongoose user doc (or plain object)
- * @param {Object} options - Optional { device_id, family_id }
- * @returns {{ accessToken: string, refreshToken: string }}
+ * @param {Object} options - Optional { device_id, family_id, csrf_token }
+ * @returns {{ accessToken: string, refreshToken: string, csrfToken: string }}
  */
 export function generateTokenPair(user, options = {}) {
+  const csrfToken = options.csrf_token || generateCSRFToken();
+
   const payload = {
     id:        user._id ?? user.id,
     username:  user.username,
     email:     user.email,
     role:      user.role,
     firm_id:   user.firm_id ?? null,
+    csrf_token: csrfToken, // Embed CSRF token in both tokens
   };
 
   // Add optional fields
@@ -125,6 +137,7 @@ export function generateTokenPair(user, options = {}) {
   return {
     accessToken:  generateAccessToken(payload),
     refreshToken: generateRefreshToken(payload),
+    csrfToken:    csrfToken
   };
 }
 

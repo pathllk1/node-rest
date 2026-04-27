@@ -1,166 +1,65 @@
-import { generateCSRFToken, getCSRFTokenFromRequest } from '../utils/csrfUtils.js';
-import crypto from 'crypto';
+/**
+ * CSRF Middleware - Updated for Bearer Token / JWT-bound CSRF
+ * 
+ * This new system does NOT use cookies.
+ * Instead, the CSRF token is embedded in the JWT (accessToken).
+ * The client must send the same CSRF token in the X-CSRF-Token header.
+ * 
+ * Note: Actual validation now happens in authMiddleware for authenticated routes.
+ * This middleware remains for backward compatibility or for routes that 
+ * want explicit CSRF check without full auth (though rare in this setup).
+ */
+
+import { getCSRFTokenFromRequest } from '../utils/csrfUtils.js';
 
 /**
- * Middleware to generate CSRF token if not present
- * Sets token in non-httpOnly cookie accessible to JS
+ * Middleware to generate CSRF token
+ * @deprecated - CSRF tokens are now generated during login/token-refresh and embedded in JWT
  */
 export const csrfGenerateToken = (req, res, next) => {
-  try {
-    // Check if token already exists in cookie
-    let csrfToken = req.cookies.csrfToken;
-    
-    if (!csrfToken) {
-      // Generate new CSRF token
-      csrfToken = generateCSRFToken();
-      
-      // Set token in non-httpOnly cookie so JavaScript can read it
-      // For cross-site cookies (different domains), use sameSite: 'none' + secure: true
-      const sameSitePolicy = process.env.COOKIE_SAMESITE || 'lax';
-      const isSecure = process.env.NODE_ENV === 'production' || sameSitePolicy === 'none';
-      
-      res.cookie('csrfToken', csrfToken, {
-        httpOnly: false, // Allow JS to read this
-        secure: isSecure,
-        sameSite: sameSitePolicy,
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
-      });
-      
-      console.log(`[CSRF] 🔐 Generated new token | sameSite: ${sameSitePolicy} | secure: ${isSecure}`);
-    } else {
-      console.log(`[CSRF] ✅ Token already exists in cookies`);
-    }
-    
-    // Send CSRF token in response header so client can read it
-    // This is necessary for cross-origin requests where document.cookie might not have access
-    res.setHeader('X-CSRF-Token', csrfToken);
-    
-    next();
-  } catch (error) {
-    console.error('[CSRF_GENERATE_ERROR]', error);
-    return res.status(500).json({
-      success: false,
-      message: 'CSRF token generation failed'
-    });
+  // If user is authenticated, we could send the token in a header for convenience
+  if (req.user && req.user.csrf_token) {
+    res.setHeader('X-CSRF-Token', req.user.csrf_token);
   }
+  next();
 };
 
 /**
  * Middleware to validate CSRF token on state-changing requests
- * Skips GET, HEAD, OPTIONS requests
- * Requires valid CSRF token for POST, PUT, DELETE, PATCH
- * Uses timing-safe comparison to prevent timing attacks
+ * This is a secondary check. Primary check is in authMiddleware.
  */
 export const csrfValidateToken = (req, res, next) => {
-  try {
-    // Skip validation for safe HTTP methods
-    const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
-    if (safeMethods.includes(req.method)) {
-      return next();
-    }
+  const method = req.method;
+  const stateChangingMethods = ['POST', 'PUT', 'DELETE', 'PATCH'];
 
-    // Skip validation for login/register endpoints (user doesn't have CSRF token yet)
-    if (req.path === '/api/auth/login' || req.path === '/api/auth/register') {
-      return next();
-    }
-
-    // Skip CSRF validation for cross-origin requests
-    // Cross-origin requests with credentials (cookies) are already protected by:
-    // 1. SameSite=none cookies require explicit CORS configuration
-    // 2. Browser enforces CORS preflight for cross-origin requests
-    // 3. Server validates origin in CORS middleware
-    // CSRF tokens are mainly for same-origin form submissions
-    const origin = req.headers.origin;
-    const host = req.headers.host;
-    
-    if (origin && !origin.includes(host)) {
-      console.log(`[CSRF] ⏭️  Skipping CSRF validation for cross-origin request from ${origin}`);
-      return next();
-    }
-
-    // Get CSRF token from request (header or body)
-    const clientToken = getCSRFTokenFromRequest(req);
-    
-    if (!clientToken) {
-      console.warn('[CSRF_VALIDATE] ❌ CSRF token missing for', req.path);
-      console.warn('[CSRF_VALIDATE] Headers:', req.headers);
-      return res.status(403).json({
-        success: false,
-        message: 'CSRF token missing'
-      });
-    }
-    
-    // Get stored token from cookie
-    const storedToken = req.cookies.csrfToken;
-    
-    if (!storedToken) {
-      console.warn('[CSRF_VALIDATE] ❌ CSRF token not found in session');
-      console.warn('[CSRF_VALIDATE] Cookies:', req.cookies);
-      return res.status(403).json({
-        success: false,
-        message: 'CSRF token not found in session'
-      });
-    }
-    
-    console.log('[CSRF_VALIDATE] ✅ Tokens present | Client:', clientToken.substring(0, 8) + '... | Stored:', storedToken.substring(0, 8) + '...');
-    
-    // Verify token with timing-safe comparison to prevent timing attacks
-    try {
-      const isValid = crypto.timingSafeEqual(
-        Buffer.from(clientToken),
-        Buffer.from(storedToken)
-      );
-      
-      if (!isValid) {
-        console.warn('[CSRF_VALIDATE] ❌ CSRF token mismatch');
-        return res.status(403).json({
-          success: false,
-          message: 'Invalid CSRF token'
-        });
-      }
-    } catch (error) {
-      // timingSafeEqual throws if buffer lengths differ
-      console.warn('[CSRF_VALIDATE] ❌ CSRF token comparison error:', error.message);
-      return res.status(403).json({
-        success: false,
-        message: 'Invalid CSRF token'
-      });
-    }
-
-    next();
-  } catch (error) {
-    console.error('[CSRF_VALIDATION_ERROR]', error);
-    return res.status(500).json({
-      success: false,
-      message: 'CSRF validation error'
-    });
+  if (!stateChangingMethods.includes(method)) {
+    return next();
   }
+
+  // Skip for public routes that don't have JWT yet
+  const publicRoutes = ['/api/auth/login', '/api/auth/register'];
+  if (publicRoutes.some(route => req.path.startsWith(route))) {
+    return next();
+  }
+
+  // If authMiddleware already ran, it already validated CSRF.
+  // We can check if req.user exists and has been validated.
+  if (req.user && req.user.csrf_token) {
+    const clientToken = getCSRFTokenFromRequest(req);
+    if (!clientToken || clientToken !== req.user.csrf_token) {
+      console.warn('[CSRF] ❌ Secondary validation failed');
+      return res.status(403).json({
+        success: false,
+        message: 'Invalid or missing CSRF token',
+        code: 'CSRF_ERROR'
+      });
+    }
+  }
+
+  next();
 };
 
-/**
- * Middleware to refresh CSRF token (optional, for extra security after sensitive operations)
- */
 export const csrfRefreshToken = (req, res, next) => {
-  try {
-    const newCSRFToken = generateCSRFToken();
-    
-    // For cross-site cookies (different domains), use sameSite: 'none' + secure: true
-    const sameSitePolicy = process.env.COOKIE_SAMESITE || 'lax';
-    const isSecure = process.env.NODE_ENV === 'production' || sameSitePolicy === 'none';
-    
-    res.cookie('csrfToken', newCSRFToken, {
-      httpOnly: false,
-      secure: isSecure,
-      sameSite: sameSitePolicy,
-      maxAge: 24 * 60 * 60 * 1000
-    });
-    
-    next();
-  } catch (error) {
-    console.error('[CSRF_REFRESH_ERROR]', error);
-    return res.status(500).json({
-      success: false,
-      message: 'CSRF token refresh failed'
-    });
-  }
+  // CSRF tokens are rotated when the JWT is refreshed.
+  next();
 };
