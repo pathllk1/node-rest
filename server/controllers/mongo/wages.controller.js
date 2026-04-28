@@ -11,6 +11,7 @@
  *  - IDs are MongoDB ObjectIds instead of integers
  */
 
+import mongoose from 'mongoose';
 import { Wage, MasterRoll, Advance } from '../../models/index.js';
 
 /* ── HELPER FUNCTIONS ────────────────────────────────────────────────────── */
@@ -128,18 +129,30 @@ export async function getExistingWagesForMonth(req, res) {
       .populate('updated_by', 'fullname')
       .lean();
 
-    // Get all unique master_roll_ids
+    // Get all unique master_roll_ids and bank_account_ids
     const masterRollIds = [...new Set(rawWages.map(w => w.master_roll_id).filter(id => id))];
+    const bankAccountIds = [...new Set(rawWages.map(w => w.paid_from_bank_ac).filter(id => id && mongoose.Types.ObjectId.isValid(id)))];
 
     // Fetch master roll data
     const masterRolls = await MasterRoll.find({ _id: { $in: masterRollIds } })
       .select('employee_name aadhar bank account_no project site')
       .lean();
 
-    // Create lookup map
+    // Fetch bank account data
+    const { BankAccount } = await import('../../models/index.js');
+    const bankAccounts = await BankAccount.find({ _id: { $in: bankAccountIds } })
+      .select('account_name bank_name account_number')
+      .lean();
+
+    // Create lookup maps
     const masterRollMap = new Map();
     masterRolls.forEach(mr => {
       masterRollMap.set(mr._id.toString(), mr);
+    });
+
+    const bankAccountMap = new Map();
+    bankAccounts.forEach(ba => {
+      bankAccountMap.set(ba._id.toString(), ba);
     });
 
     // Merge data — also expose _id as a plain string `id` so the frontend
@@ -152,6 +165,12 @@ export async function getExistingWagesForMonth(req, res) {
           _id: masterRoll._id,
         };
       }
+      
+      const bankAccount = bankAccountMap.get(wage.paid_from_bank_ac?.toString());
+      if (bankAccount) {
+        wage.bank_account_details = bankAccount;
+      }
+
       return {
         ...wage,
         id: wage._id.toString(), // normalize: frontend uses wage.id everywhere
@@ -230,6 +249,7 @@ export async function createWagesBulk(req, res) {
           salary_month:     month,
           paid_date:        wage.paid_date             ?? null,
           cheque_no:        wage.cheque_no             ?? null,
+          payment_method:   wage.payment_method        ?? null,
           paid_from_bank_ac: wage.paid_from_bank_ac    ?? null,
           created_by:       userId,
           updated_by:       userId,
@@ -281,7 +301,7 @@ export async function updateWage(req, res) {
     const firmId     = req.user.firm_id;
 
     const { wage_days, gross_salary, epf_deduction, esic_deduction,
-            other_deduction, other_benefit, advance_deduction, paid_date, cheque_no, paid_from_bank_ac } = req.body;
+            other_deduction, other_benefit, advance_deduction, paid_date, cheque_no, payment_method, paid_from_bank_ac } = req.body;
 
     if (!wage_days || gross_salary === undefined) {
       return res.status(400).json({ success: false, message: 'wage_days and gross_salary are required' });
@@ -303,6 +323,7 @@ export async function updateWage(req, res) {
     existingWage.net_salary       = calculateNetSalary(gross_salary, epf_deduction, esic_deduction, other_deduction, other_benefit, existingWage.advance_deduction);
     existingWage.paid_date        = paid_date        ?? null;
     existingWage.cheque_no        = cheque_no        ?? null;
+    existingWage.payment_method   = payment_method   ?? null;
     existingWage.paid_from_bank_ac = paid_from_bank_ac ?? null;
     existingWage.updated_by       = userId;
 
@@ -375,6 +396,7 @@ export async function updateWagesBulk(req, res) {
         doc.net_salary        = calculateNetSalary(wage.gross_salary, wage.epf_deduction, wage.esic_deduction, wage.other_deduction, wage.other_benefit, wage.advance_deduction);
         doc.paid_date         = wage.paid_date        ?? null;
         doc.cheque_no         = wage.cheque_no        ?? null;
+        doc.payment_method    = wage.payment_method   ?? null;
         doc.paid_from_bank_ac = wage.paid_from_bank_ac ?? null;
         doc.updated_by        = userId;
 

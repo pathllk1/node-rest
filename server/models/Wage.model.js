@@ -29,6 +29,7 @@ const wageSchema = new Schema(
     salary_month:     { type: String, required: true },
     paid_date:        { type: String },
     cheque_no:        { type: String },
+    payment_method:   { type: String },
     paid_from_bank_ac: { type: String },
     created_by: {
       type: Schema.Types.ObjectId,
